@@ -38,4 +38,38 @@ The area and fmax (de1soc fpga and TSMC 65nm) are listed below:
 |   |   |   |
 
 ## Usage and Integration
+
+The following code snippet shows the top level ports for interfacing pakfpu. By specifying FP64 the user can instantiate a double precision fpu.
+```
+module fp_top
+#(
+    parameter fp_format_e FP_FORMAT = FP32,
+    parameter fp_format_e INT_FORMAT = INT32,
+
+    localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT),
+    localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT),
+    localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT),
+)
+(
+    input clk_i,
+    input rst_i,
+
+    input start_i,
+    output ready_o,
+
+    input [FP_WIDTH-1:0] a_i,
+    input [FP_WIDTH-1:0] b_i,
+    input [FP_WIDTH-1:0] c_i,
+
+    input roundmode_e rnd_i,
+
+    input float_op_e op_i,
+    input [1:0] op_modify_i,
+
+    output [FP_WIDTH-1:0] result_o,
+    output valid_o,
+    output status_t flags_o
+);
+```
+
 ## Contribute
