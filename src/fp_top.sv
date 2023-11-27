@@ -8,6 +8,7 @@ module fp_top
     localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT),
     localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT),
     localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT),
+    localparam int unsigned INT_WIDTH = int_width(INT_FORMAT),
 )
 (
     input clk_i,
@@ -57,12 +58,16 @@ logic min_max_done;
 logic sgnj_start;
 logic sgnj_done;
 
+generate
+  if(FP_FORMAT == FP64) begin
+    logic f2d_start;
+    logic f2d_done;
+    logic d2f_start;
+    logic d2f_done;
+  end
+endgenerate
+
 logic need_rnd;
-
-// if fpformat == 64
-//logic f2f_start;
-//logic f2f_done;
-
 
 /////////////////////////////////////////////////////////////////
 // Func Decoder
@@ -92,149 +97,172 @@ assign sgnj_start       = start_i & (op_i == FSGNJ);
 
 assign need_rnd         = add_start | mul_start | i2f_start;
 
-//lets leave double for now
-//if fpformat == 64
-//assign f2f_start        = start_i & (op_i == FSGNJNS | op_i == FSGNJS)
+generate
+  if(FP_FORMAT == FP64) begin
+    assign f2f_start    = start_i & (op_i == FSGNJNS | op_i == FSGNJS)
+  end
+endgenerate
+
 
 /////////////////////////////////////////////////////////////////
 // Func blocks
 /////////////////////////////////////////////////////////////////
+Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t add_urnd_result;
+Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t mul_urnd_result;
+Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t d2f_urnd_result;
+Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t i2f_urnd_result;
+Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t div_urnd_result;
+Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t madd_urnd_result;
+Structs #(.FP_FORMAT(FP_FORMAT))::round_res_t f2d_rnd_result;
 
+////////////////////
+// Adder
+////////////////////
 fp_add #(.FP_FORMAT(FP_FORMAT)) fp_add_inst
 (
-    .a_i        (a_i),
-    .b_i        (b_i),
-    .start_i    (add_start),
-    .sub        (op_modify_i == 2'b01),
-    .rnd_i      (rnd_i),
+  .a_i            (a_i),
+  .b_i            (b_i),
+  .start_i        (add_start),
+  .sub            (op_modify_i == 2'b01),
+  .rnd_i          (rnd_i),
 
-    .result_o   (u_result_add),
-    .done_o     (add_done),
-    .rs_o       (rs_add),
-    .round_en_o (round_en_add),
-    .invalid_o  (invalid_add),
-    .exp_cout_o (exp_cout_add)
+  .urnd_result_o  (add_urnd_result),
+  .done_o         (add_done)
 );
 
+////////////////////
+// Multiply
+////////////////////
 fp_mul #(.FP_FORMAT(FP_FORMAT)) fp32_mul_inst
 (
-    .a_i        (a_i),
-    .b_i        (b_i),
-    .start_i    (mul_start),
+  .a_i            (a_i),
+  .b_i            (b_i),
+  .start_i        (mul_start),
 
-    .result_o   (u_result_mul),
-    .done_o     (mul_done),
-    .rs_o       (rs_mul),
-    .round_en_o (round_en_mul),
-    .invalid_o  (invalid_mul),
-    .exp_cout_o (exp_cout_mul)
+  .urnd_result_o  (mul_urnd_result),
+  .done_o         (mul_done)
 );
 
-
+////////////////////
+// I2F
+////////////////////
 //if input < INT_WIDTH: sign extend (this is to cater 32bit operands in 64bit cpu)
 fp_i2f #(.FP_FORMAT(FP_FORMAT), .INT_FORMAT(INT_FORMAT)) fp_i2f_inst
 (
-    .a_i        (a_i),
-    .start_i    (i2f_start),
-    .signed_i   (op_modify_i == 2'b01),
+  .a_i            (a_i),
+  .start_i        (i2f_start),
+  .signed_i       (op_modify_i == 2'b01),
 
-    .result_o   (u_result_i2f),
-    .done_o     (i2f_done),
-    .rs_o       (rs_i2f),
-    .round_en_o (round_en_i2f),
-    .invalid_o  (invalid_i2f),
-    .exp_cout_o (exp_cout_i2f)
+  .urnd_result_o  (i2f_urnd_result),
+  .done_o         (i2f_done)
 );
 
+////////////////////
+// F2I
+////////////////////
+logic [INT_WIDTH-1:0] f2i_result;
+logic [INT_WIDTH-1:0] f2i_result_reg_rnd;
+status_t f2i_flags;
+status_t f2i_flags_reg_rnd;
 //if output < INT_WIDTH: sign extend (this is to cater 32bit operands in 64bit cpu)
 fp_f2i #(.FP_FORMAT(FP_FORMAT), .INT_FORMAT(INT_FORMAT)) fp_f2i_inst 
 (
-    .a_i        (a_i),
-    .start_i    (f2i_start),
-    .signed_i   (op_modify_i == 2'b01),
-    .rnd_i      (rnd_i),
+  .a_i            (a_i),
+  .start_i        (f2i_start),
+  .signed_i       (op_modify_i == 2'b01),
+  .rnd_i          (rnd_i),
 
-    .result_o   (result_f2i),
-    .done_o     (f2i_done),
-    .flags_o    (flags_o_f2i)
+  .result_o       (f2i_result),
+  .done_o         (f2i_done),
+  .flags_o        (f2i_flags)
 );
+
+////////////////////
+// CMP
+////////////////////
+logic [INT_WIDTH-1:0] cmp_result;
+logic [INT_WIDTH-1:0] cmp_result_reg_rnd;
+status_t cmp_flags;
+status_t cmp_flags_reg_rnd;
 
 fp_cmp #(.FP_FORMAT(FP_FORMAT)) fp_cmp_inst
 (
-    .a_i        (a_i),
-    .b_i        (b_i),
-    .eq_en_i    (op_modify_i == 2'b01),
-    .start_i    (cmp_start),
+  .a_i            (a_i),
+  .b_i            (b_i),
+  .eq_en_i        (op_modify_i == 2'b01),
+  .start_i        (cmp_start),
 
-    .lt_o       (lt),
-    .le_o       (le),
-    .eq_o       (eq),
-    .done_o     (cmp_done),
-    .flags_o    (flags_o_cmp)
+  .lt_o           (lt),
+  .le_o           (le),
+  .eq_o           (eq),
+  .done_o         (cmp_done),
+  .flags_o        (cmp_flags)
 );
+
+////////////////////
+// Classify
+////////////////////
+logic [INT_WIDTH-1:0] class_result;
+logic [INT_WIDTH-1:0] class_result_reg_rnd;
 
 fp_class #(.FP_FORMAT(FP_FORMAT)) fp_class_inst
 (
-    .a_i        (a_i),
-    .start_i    (class_start),
-    .class_o    (classify),
-    .done_o     (class_done),
+  .a_i            (a_i),
+  .start_i        (class_start),
+  .class_o        (classify),
+  .done_o         (class_done)
 );
 
+////////////////////
+// Min/Max
+////////////////////
 //others min-max, sign injection
 
-//If fpformat == 64
-/*
-//take care of nan boxing
-f2d d2f_inst
-(
-    .a_i(a_i),
-    .result_o(result_f2d),
-    .flags_o(flags_o_f2d)
-);
+////////////////////
+// F2F
+////////////////////
+generate
+  if(FP_FORMAT == FP64) begin
+    //take care of nan boxing
+    f2d d2f_inst
+    (
+        .a_i(a_i),
+        .rnd_result_o(f2d_rnd_result)
+    );
 
-d2f d2f_inst
-(
-    .a_i(a_i),
-    .result_o(result_d2f),
-    .rs_o(rs_d2f),
-    .round_en_o(round_en_d2f),
-    .invalid_o(invalid_d2f),
-    .exp_cout_o(exp_cout_d2f)
-);
-*/
+    d2f d2f_inst
+    (
+        .a_i(a_i),
+        .urnd_result_o  (d2f_urnd_result)
+    );
+  end
+endgenerate
 
 /////////////////////////////////////////////////////////////////
 // First Stage Arbiter
 /////////////////////////////////////////////////////////////////
-logic u_result_reg;
-logic rs_reg;
-logic round_en_reg;
-logic invalid_reg;
-logic exp_cout_reg;
+Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_reg;
 logic done_reg;
 
 assign done_reg = (((add_done | cmp_done) | (f2f_done | f2i_done)) | ((i2f_done | mul_done) | (sgnj_done | class_done))) | min_max_done;
 
 always_comb
 begin
+  urnd_result_reg = 'h0;
+  f2i_result      = 'h0;
+  f2i_flags       = 'h0;
+  cmp_result      = 'h0;
+  cmp_flags       = 'h0;
+  class_result    = 'h0;
+
     case(op_i)
-      FADD: begin
-        u_result_reg  = 
-        rs_reg        =
-        round_en_reg  =
-        invalid_reg   =
-        exp_cout_reg  =
-      end
-      FMUL: begin
-      end
-      FDIV: begin
-      end
-      I2F: begin
-      end
+      FADD:   urnd_result_reg = add_urnd_result;
+      FMUL:   urnd_result_reg = mul_urnd_result;
+      FDIV:   urnd_result_reg = div_urnd_result;
+      I2F:    urnd_result_reg = i2f_urnd_result;
+      FMADD:  urnd_result_reg = madd_urnd_result;
+      F2F:    urnd_result_reg = f2f_urnd_result;
       F2I: begin
-      end
-      F2F: begin
       end
       FCMP: begin
       end
@@ -246,43 +274,42 @@ begin
       end
       FSGNJ: begin
       end
-      FMADD: begin
-      end
-      default: begin
-      end
     endcase
 end
 
 /////////////////////////////////////////////////////////////////
 // Regwall
 /////////////////////////////////////////////////////////////////
-logic u_result_reg_rnd;
-logic rs_reg_rnd;
-logic round_en_reg_rnd;
-logic invalid_reg_rnd;
-logic exp_cout_reg_rnd;
+Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_reg_rnd;
 logic done_reg_rnd;
 logic need_rnd_reg_rnd;
+roundmode_e rnd_reg;
 
 always_ff @( posedge clk_i or negedge rst_i ) begin : pre_round_regwall
-  if(!rst_i)
-
+  if(!rst_i) begin
+    urnd_result_reg_rnd <= 'h0;
+    done_reg_rnd        <= 'h0;
+    need_rnd_reg_rnd    <= 'h0;
+    rnd_reg             <= 'h0;
+  end
+  else begin
+    urnd_result_reg_rnd <= urnd_result_reg;
+    done_reg_rnd        <= done_reg;
+    need_rnd_reg_rnd    <= need_rnd;
+    rnd_reg             <= rnd_i;
+  end
 end
 /////////////////////////////////////////////////////////////////
 // Round
 /////////////////////////////////////////////////////////////////
+Structs #(.FP_FORMAT(FP_FORMAT))::round_res_t rnd_result
 
 fp_rnd #(.FP_FORMAT(FP_FORMAT)) fp_rnd_inst
 (
-    .a_i        (u_result_reg_rnd),
-    .rnd_i      (rnd_r),
-    .rs_i       (rs_r),
-    .round_en_i (round_en_r),
-    .invalid_i  (invalid_r),
-    .exp_cout_i (exp_cout_r),
+  .urnd_result_i(urnd_result_reg_rnd),
+  .rnd_i(rnd_reg),
 
-    .out_o      (result_o),
-    .flags_o    (flags_o)
+  .rnd_result_o(rnd_result)
 );
 
 /////////////////////////////////////////////////////////////////
