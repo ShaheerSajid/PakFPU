@@ -72,11 +72,20 @@ end
 // (
 //     .a_i(opA),
 //     .b_i(opB),
-//     .sub_i(1'b1),
+//     .sub_i(1'b0),
 //     .rnd_i(rnd),
 
 //     .urnd_result_o(urnd_result)
 // );
+
+fp_div #(.FP_FORMAT(FP32))fp_div_inst
+(
+    .a_i(opA),
+    .b_i(opB),
+    .rnd_i(rnd),
+
+    .rnd_result_o(rnd_result)
+);
 
 // fp_mul #(.FP_FORMAT(FP32))fp_mul_inst
 // (
@@ -125,8 +134,8 @@ end
 // );
 
 
-// assign result = rnd_result.result;
-// assign flags_o = rnd_result.flags;
+assign result = rnd_result.result;
+assign flags_o = rnd_result.flags;
 
 /*
 fp_cmp fp_cmp_inst

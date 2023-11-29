@@ -4,15 +4,15 @@ LEVEL = $(LEVEL)
 gen_test: 
 	echo "Generating Tests"
 	echo "${TEST} RDN"
-	/opt/testfloat/testfloat_gen ${TEST} -tininessafter -rmin -seed 1000 -level $(LEVEL) > testbench/test_rdn.txt 
+	./testfloat/testfloat_gen ${TEST} -tininessafter -rmin -seed 1000 -level $(LEVEL) > testbench/test_rdn.txt 
 	echo "${TEST} RUP"
-	/opt/testfloat/testfloat_gen ${TEST} -tininessafter -rmax -seed 1000 -level $(LEVEL) > testbench/test_rup.txt
+	./testfloat/testfloat_gen ${TEST} -tininessafter -rmax -seed 1000 -level $(LEVEL) > testbench/test_rup.txt
 	echo "${TEST} RTZ"
-	/opt/testfloat/testfloat_gen ${TEST} -tininessafter -rminMag -seed 1000 -level $(LEVEL) > testbench/test_rtz.txt
+	./testfloat/testfloat_gen ${TEST} -tininessafter -rminMag -seed 1000 -level $(LEVEL) > testbench/test_rtz.txt
 	echo "${TEST} RNE"
-	/opt/testfloat/testfloat_gen ${TEST} -tininessafter -rnear_even -seed 1000 -level $(LEVEL) > testbench/test_rne.txt
+	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_even -seed 1000 -level $(LEVEL) > testbench/test_rne.txt
 	echo "${TEST} RMM"
-	/opt/testfloat/testfloat_gen ${TEST} -tininessafter -rnear_maxMag -seed 1000 -level $(LEVEL) > testbench/test_rmm.txt
+	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_maxMag -seed 1000 -level $(LEVEL) > testbench/test_rmm.txt
 
 questa_sim:
 	if [ -d "work" ]; then  vdel -lib work -all; fi
@@ -28,6 +28,7 @@ verilator_sim:
 	-Wno-WIDTH \
 	-Wno-PINMISSING \
 	-O3 \
+	--trace \
 	--timescale-override 1ns/10ps \
 	-sv --top-module tb \
 	--cc \
@@ -51,6 +52,7 @@ verilator_sim:
 	echo -n "${TEST} RMM: "
 	echo "${TEST} RMM Errors" >> err.txt
 	obj_dir/Vtb	testbench/test_rmm.txt 4 2>> err.txt
+	gtkwave --dump waveform.vcd
 	
 	
 .PHONY: questa

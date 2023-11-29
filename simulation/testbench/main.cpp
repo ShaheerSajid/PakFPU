@@ -10,7 +10,7 @@
 #include <iostream>
 #include "Vtb.h"
 #include "verilated.h"
-
+#include "verilated_vcd_c.h"
 
 uint8_t getNum(char ch)
 {
@@ -94,13 +94,19 @@ uint32_t hex_to_int_8(char *in)
 	val |= getNum(in[1]);
 	return val;
 }
+
+vluint64_t sim_time = 0;
 int main(int argc, char **argv) {
 		
 	// Initialize Verilators variables
 	Verilated::commandArgs(argc, argv);
+	Verilated::traceEverOn(true);
 	// Create an instance of our module under test
 	Vtb *tb = new Vtb;
+	VerilatedVcdC *m_trace = new VerilatedVcdC;
 	// Tick the clock until we are done
+	tb->trace(m_trace, 2);
+	m_trace->open("waveform.vcd");
 
 	FILE * fp;
     char * line = NULL;
@@ -136,21 +142,24 @@ int main(int argc, char **argv) {
 		//calculate 
 		a = hex_to_int_32(vals[0]);
 
-		exp_res = hex_to_int_64(vals[1]);
-		exc = hex_to_int_8(vals[2]);
+		// exp_res = hex_to_int_64(vals[1]);
+		// exc = hex_to_int_8(vals[2]);
 		
-		// b = hex_to_int_32(vals[1]);
-    //c = hex_to_int_32(vals[2]);
-		// exp_res = hex_to_int_32(vals[2]);
-		// exc = hex_to_int_8(vals[3]);
+		b = hex_to_int_32(vals[1]);
+    	//	c = hex_to_int_32(vals[2]);
+		exp_res = hex_to_int_32(vals[2]);
+		exc = hex_to_int_8(vals[3]);
 
 		//if(((a&0x7F800000) == 0 && (b&0x7F800000) == 0))
 		//{
 			tb->opA = a;
 			tb->opB = b;	
-      tb->opC = c;	
+      		tb->opC = c;	
 			tb->rnd = rm;
 			tb->eval();
+
+			m_trace->dump(sim_time);
+			sim_time++;
 				
 			actual_res = tb->result;
 			if(exp_res != actual_res || tb->flags_o != exc)
@@ -165,6 +174,9 @@ int main(int argc, char **argv) {
     fclose(fp);
     if (line)
         free(line);
+	m_trace->close();
+	delete tb;
+	delete m_trace;
     exit(EXIT_SUCCESS);
 
 }
