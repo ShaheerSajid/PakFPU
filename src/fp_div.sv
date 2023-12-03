@@ -12,7 +12,9 @@ module fp_div
     localparam INF = {{EXP_WIDTH{1'b1}}, {MANT_WIDTH{1'b0}}},
     localparam R_IND = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}}
 )
-(
+( 
+    input clk_i,
+    input reset_i,
     input [FP_WIDTH-1:0] a_i,
     input [FP_WIDTH-1:0] b_i,
     input start_i,
@@ -22,8 +24,83 @@ module fp_div
 
 );
 
-// subtract exponents
-// divide mantissas
+Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t result_o;
+logic [1:0] rs_o;
+logic round_en_o;
+logic invalid_o;
+logic [1:0] exp_cout_o;
 
+logic urpr_s;
+logic [MANT_WIDTH:0] urpr_mant;
+logic [EXP_WIDTH:0] urpr_exp;
+
+logic sign_o;
+logic [EXP_WIDTH-1:0] exp_o;
+logic [MANT_WIDTH-1:0] mant_o;
+
+Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t a_decoded;
+Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t b_decoded;
+
+assign a_decoded = a_i;
+assign b_decoded = b_i;
+
+fp_info_t a_info;
+fp_info_t b_info;
+
+assign a_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(a_i);
+assign b_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(b_i);
+
+
+//precheck
+always_comb
+begin
+  round_en_o = 1'b1;
+  result_o.sign = sign_o;
+  result_o.mant = mant_o;
+  result_o.exp = exp_o;
+end
+
+assign urpr_s = a_decoded.sign ^ b_decoded.sign;
+assign urpr_exp = (a_decoded.exp - b_decoded.exp) + BIAS;
+
+int_div #(.WIDTH(MANT_WIDTH+1)) int_div_inst
+(
+  .clk_i(clk_i),
+  .reset_i(reset_i),
+  .start_i(start_i),
+  .n_i({a_info.is_normal, a_decoded.mant}), 
+  .d_i({b_info.is_normal, b_decoded.mant}),
+  .q_o(urpr_mant), 
+  .valid_o(done_o)
+);
+
+//normalize
+logic [MANT_WIDTH:0] shifted_mant_norm;
+//calculate shift
+logic [$clog2(FP_WIDTH):0] shamt;
+lzc #(.WIDTH(MANT_WIDTH)) lzc_inst
+(
+    .a_i(urpr_mant),
+    .cnt_o(shamt),
+    .zero_o()
+);
+
+assign shifted_mant_norm = urpr_mant << shamt; 
+
+assign sign_o = urpr_s;
+assign exp_o = urpr_exp - shamt;
+assign mant_o = shifted_mant_norm;
+
+//calculate RS
+// assign rs_o[1] = urpr_mant[2*MANT_WIDTH + 1] ? urpr_mant[MANT_WIDTH] : shifted_mant_norm[MANT_WIDTH - 1];
+// assign rs_o[0] = urpr_mant[2*MANT_WIDTH + 1] ? |urpr_mant[MANT_WIDTH-1:0] : |shifted_mant_norm[MANT_WIDTH - 2:0];
+
+// assign invalid_o = a_info.is_signalling | b_info.is_signalling | ((a_info.is_zero & b_info.is_inf) | (a_info.is_inf & b_info.is_zero));
+
+assign urnd_result_o.u_result =  result_o;
+// assign urnd_result_o.rs =  rs_o;
+// assign urnd_result_o.round_en =  round_en_o;
+// assign urnd_result_o.invalid =  invalid_o;
+// assign urnd_result_o.exp_cout =  exp_cout_o;
 
 endmodule

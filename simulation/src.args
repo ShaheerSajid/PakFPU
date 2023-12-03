@@ -7,5 +7,6 @@
 ../src/fp_f2i.sv
 ../src/fp_f2d.sv
 ../src/fp_d2f.sv
+../src/int_div.sv
 ../src/fp_div.sv
 ../src/lzc.sv

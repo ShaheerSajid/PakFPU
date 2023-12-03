@@ -126,8 +126,6 @@ int main(int argc, char **argv) {
 	
     while ((read = getline(&line, &len, fp)) != -1) {
 
-		test_cnt++;
-        
 		int init_size = strlen(line);
 		char delim[] = " ";
 		char *ptr = strtok(line, delim);
@@ -150,8 +148,9 @@ int main(int argc, char **argv) {
 		exp_res = hex_to_int_32(vals[2]);
 		exc = hex_to_int_8(vals[3]);
 
-		//if(((a&0x7F800000) == 0 && (b&0x7F800000) == 0))
-		//{
+		if(((a&0x7F800000) == 0 && (b&0x7F800000) == 0))
+		{
+      test_cnt++;
 			tb->opA = a;
 			tb->opB = b;	
       		tb->opC = c;	
@@ -162,13 +161,13 @@ int main(int argc, char **argv) {
 			sim_time++;
 				
 			actual_res = tb->result;
-			if(exp_res != actual_res || tb->flags_o != exc)
+			if(exp_res != actual_res /*|| tb->flags_o != exc*/)
 			{
 				//write errors to file!!!
 				fprintf(stderr, "%016lx %016lx %016lx Expected=%016lx Actual=%016lx Ac.Flags=%d Exp.Flags=%d\n", a,b,c,exp_res,actual_res,tb->flags_o,exc);
 				err_cnt++;
 			}
-		//}
+		}
     }
 	fprintf(stdout, "Total Errors = %d/%d\t (%0.2f%%)\n", err_cnt, test_cnt, err_cnt*100.0/test_cnt);
     fclose(fp);

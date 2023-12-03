@@ -2,6 +2,8 @@ onerror {resume}
 quietly WaveActivateNextPane {} 0
 add wave -noupdate /int_div/clk_i
 add wave -noupdate /int_div/reset_i
+add wave -noupdate /int_div/stall_i
+add wave -noupdate /int_div/sign_i
 add wave -noupdate /int_div/start_i
 add wave -noupdate -radix decimal /int_div/n_i
 add wave -noupdate -radix decimal /int_div/d_i

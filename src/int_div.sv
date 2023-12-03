@@ -1,176 +1,132 @@
-module divider
-            (
-                input logic clk_i,
-                            reset_i,
-                            stall_i,
-                            flush_i,
-                            sign_i,
-                            start_i,
-                input logic [31:0]  dividend_i, 
-                                    divider_i,
-                
-                output logic [31:0] quotient_o, 
-                                    remainder_o,
-                output  logic valid_o
-            );
-	
-	var logic [31:0] N,D;
-	var logic [31:0] Q,R;
-	var logic [31:0] N_r,D_r;
-	
-	var logic [5:0] n;
-	var logic [5:0] bits;
-	var logic loaded;
-	var logic N_bit;
-	
-  wire logic ready;
-	wire logic neg_out;
-	wire logic n_sign;
-	wire logic d_sign;
-	wire logic [31:0] abs_dividend;
-	wire logic divide_by_zero;
-	wire logic signed_ovf;
+module int_div
+#(
+  parameter WIDTH = 32
+)
+(
+  input clk_i,
+  input reset_i,
+  input start_i,
+  input [WIDTH-1:0] n_i, 
+  input [WIDTH-1:0] d_i,
+  
+  output logic [WIDTH-1:0] q_o, 
+  output logic valid_o
+);
 
-  assign ready = !n;
-	assign n_sign = dividend_i[31];
-	assign d_sign = divider_i[31];
-	assign neg_out = sign_i & ((D_r[31] & ~N_r[31]) | (~D_r[31] & N_r[31]));
-	assign abs_dividend = (~(sign_i & n_sign)) ? {dividend_i} : ~{dividend_i} + 1'b1;
+/*
+R := N
+D := D << n            -- R and D need twice the word width of N and Q
+for i = n − 1 .. 0 do  -- for example 31..0 for 32 bits
+  if R >= 0 then
+    q(i) := +1
+    R := 2 * R − D
+  else
+    q(i) := −1
+    R := 2 * R + D
+  end if
+end
 
-	assign divide_by_zero = loaded && (D_r == 0);
-	assign signed_ovf = loaded && sign_i && (N_r == -32'h80000000) && (D_r == -1);
-	
-	
-	always_comb
-	begin
-		N_bit = N[n-1'b1];
-		if(divide_by_zero || signed_ovf)
-			bits = 6'd3;
-		else
-			casez (abs_dividend)
-					32'b00000000000000000000000000000001: bits = 6'd3;
-					32'b0000000000000000000000000000001?: bits = 6'd3;
-					32'b000000000000000000000000000001??: bits = 6'd3;
-					32'b00000000000000000000000000001???: bits = 6'd4;
-					32'b0000000000000000000000000001????: bits = 6'd5;
-					32'b000000000000000000000000001?????: bits = 6'd6;
-					32'b00000000000000000000000001??????: bits = 6'd7;
-					32'b0000000000000000000000001???????: bits = 6'd8;
-					32'b000000000000000000000001????????: bits = 6'd9;
-					32'b00000000000000000000001?????????: bits = 6'd10;
-					32'b0000000000000000000001??????????: bits = 6'd11;
-					32'b000000000000000000001???????????: bits = 6'd12;
-					32'b00000000000000000001????????????: bits = 6'd13;
-					32'b0000000000000000001?????????????: bits = 6'd14;
-					32'b000000000000000001??????????????: bits = 6'd15;
-					32'b00000000000000001???????????????: bits = 6'd16;
-					32'b0000000000000001????????????????: bits = 6'd17;
-					32'b000000000000001?????????????????: bits = 6'd18;
-					32'b00000000000001??????????????????: bits = 6'd19;
-					32'b0000000000001???????????????????: bits = 6'd20;
-					32'b000000000001????????????????????: bits = 6'd21;
-					32'b00000000001?????????????????????: bits = 6'd22;
-					32'b0000000001??????????????????????: bits = 6'd23;
-					32'b000000001???????????????????????: bits = 6'd24;
-					32'b00000001????????????????????????: bits = 6'd25;
-					32'b0000001?????????????????????????: bits = 6'd26;
-					32'b000001??????????????????????????: bits = 6'd27;
-					32'b00001???????????????????????????: bits = 6'd28;
-					32'b0001????????????????????????????: bits = 6'd29;
-					32'b001?????????????????????????????: bits = 6'd30;
-					32'b01??????????????????????????????: bits = 6'd31;
-					32'b1???????????????????????????????: bits = 6'd32;
-					default: bits = 6'd3;
-			endcase
-	end
-	
-	wire logic [31:0]r_shift;
-	wire logic [31:0]r_diff;
-	wire logic [31:0]q;
-	assign r_shift = {R[30:0], N_bit};
-	assign r_diff = (r_shift >= D)? r_shift - D: r_shift;
-	assign q  = (r_shift >= D)? 1 << (n-1'b1):0;
-	
-	
-	always_ff@(posedge clk_i or posedge reset_i)
-	begin
-		if(reset_i)
-		begin
-			n <= 0;
-			Q <= 0;
-			R <= 0;
-			N <= 0;
-			D <= 0;
-			N_r <= 0;
-			D_r <= 0;
-			loaded <= 1'b0;
-		end
-    else if(flush_i)
-		begin
-			n <= 0;
-			Q <= 0;
-			R <= 0;
-			N <= 0;
-			D <= 0;
-			N_r <= 0;
-			D_r <= 0;
-			loaded <= 1'b0;
-		end
-		else if(~stall_i)
-		begin
-			if(!start_i || ready)
-			begin
-				n <= bits;
-				Q <= 0;
-				R <= 0;
-				N <= 0;
-				D <= 0;
-				N_r <= 0;
-				D_r <= 0;
-				loaded <= 1'b0;
-			end
-			else if(!loaded)
-			begin
-				n <= bits;
-				Q <= 0;
-				R <= 0;
-				N <= (~(sign_i & n_sign)) ? {dividend_i} : ~{dividend_i} + 1'b1;
-				D <= (~(sign_i & d_sign)) ? {divider_i} : ~{divider_i} + 1'b1;
-				N_r <= dividend_i;
-				D_r <= divider_i;
-				loaded <= 1'b1;
-			end
-			else if(n > 0 && loaded)
-			begin
-				n <= n - 1'b1;
-				R <= r_diff;
-				N <=N;
-				D <=D;
-				N_r <= N_r;
-				D_r <= D_r;
-				Q <= Q | q;
-				loaded <= 1'b1;
-			end
-		end
-	end
-	
-	always_comb begin
-		if(divide_by_zero)
-		begin
-			quotient_o =  sign_i? -1 : 32'hFFFFFFFF;
-			remainder_o = N_r;
-		end
-		else if(signed_ovf)
-		begin
-			quotient_o =  -32'h80000000;
-			remainder_o = 0;
-		end
-		else
-		begin
-			quotient_o =  (~neg_out)?Q:~Q+1'b1;
-		 	remainder_o = (~(sign_i & N_r[31]))?R:~R+1'b1;
-		end
-	end
-	assign valid_o = ready;
+Q := Q − bit.bnot(Q)
+
+if R < 0 then
+  Q := Q − 1
+  R := R + D  -- Needed only if the remainder is of interest.
+end if
+-- Note: N=numerator, D=denominator, n=#bits, R=partial remainder, q(i)=bit #i of quotient.
+Source: https://en.wikipedia.org/wiki/Division_algorithm
+*/
+
+
+logic [2*WIDTH - 1:0] R;
+logic [2*WIDTH - 1:0] D;
+logic [WIDTH - 1:0] Q;
+logic [$clog2(WIDTH):0] n;
+logic [$clog2(WIDTH):0] run_cnt;
+
+
+logic [WIDTH - 1:0] n_internal;
+logic [WIDTH - 1:0] d_internal;
+
+assign n_internal = n_i;
+assign d_internal = d_i;
+
+// calculate n-bits
+assign n = WIDTH;
+//////////////////////
+//state machine
+//////////////////////
+typedef enum logic[1:0] {IDLE, RUN, DONE} state;
+state cur_state, nxt_state;
+
+//next state logic
+always_comb begin
+  case(cur_state)
+    IDLE: nxt_state = start_i? RUN : IDLE;
+    RUN:  nxt_state = (run_cnt == 0)? DONE : RUN;
+    DONE: nxt_state = IDLE;
+    default: nxt_state = IDLE;
+  endcase
+end
+//state hopper
+always_ff @( posedge clk_i or negedge reset_i ) begin
+  if(!reset_i)
+    cur_state <= IDLE;
+  else
+    cur_state <= nxt_state;
+end
+//////////////////////
+//Registers
+//////////////////////
+//run_cnt
+always_ff @( posedge clk_i or negedge reset_i ) begin
+  if(!reset_i)
+    run_cnt <= 'h0;
+  else if(cur_state == IDLE)
+    run_cnt <= n - 1;
+  else if(cur_state == RUN)
+    run_cnt <= run_cnt - 1'b1;
+  else 
+    run_cnt <= 'h0;
+end
+//R, D, Q
+always_ff @( posedge clk_i or negedge reset_i ) begin
+  if(!reset_i) begin
+    R <= 'h0;
+    Q <= 'h0;
+    D <= 'h0;
+  end
+  else if(cur_state == IDLE) begin
+    R <= n_internal;
+    D <= d_internal << n;
+  end
+  else if(cur_state == RUN) begin
+    if(~R[2*WIDTH-1]) begin
+      Q[run_cnt]  <= 1'b1;
+      R           <= (R << 1) - D;
+    end
+    else begin
+      Q[run_cnt]  <= 1'b0;
+      R           <= (R << 1) + D;
+    end
+  end
+end
+//output
+logic [WIDTH - 1:0] Q_fix;
+assign Q_fix = Q - (~Q);
+
+always_ff @( posedge clk_i or negedge reset_i ) begin
+  if(!reset_i)
+    q_o <= 'h0;
+  else if(cur_state == DONE)
+    q_o     <= (R[2*WIDTH-1])? Q_fix - 1'b1 : Q_fix;
+end
+
+always_ff @( posedge clk_i or negedge reset_i ) begin
+  if(!reset_i)
+    valid_o = 'h0;
+  else 
+    valid_o = (cur_state == DONE);
+end
+
 
 endmodule
