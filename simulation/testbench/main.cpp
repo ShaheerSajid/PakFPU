@@ -144,16 +144,16 @@ int main(int argc, char **argv) {
 		// exc = hex_to_int_8(vals[2]);
 		
 		b = hex_to_int_32(vals[1]);
-    	//	c = hex_to_int_32(vals[2]);
-		exp_res = hex_to_int_32(vals[2]);
-		exc = hex_to_int_8(vals[3]);
+    c = hex_to_int_32(vals[2]);
+		exp_res = hex_to_int_32(vals[3]);
+		exc = hex_to_int_8(vals[4]);
 
 		if(((a&0x7F800000) == 0 && (b&0x7F800000) == 0))
 		{
       test_cnt++;
 			tb->opA = a;
 			tb->opB = b;	
-      		tb->opC = c;	
+      tb->opC = c;	
 			tb->rnd = rm;
 			tb->eval();
 

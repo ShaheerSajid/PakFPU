@@ -54,14 +54,14 @@ initial begin
     repeat(5) #10;
     rst = 1;
     while (! $feof(outfile0)) begin
-        //$fscanf(outfile0,"%h %h %h %h %h\n",opA,opB,opC, exp_res,exc);
-        $fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
+        $fscanf(outfile0,"%h %h %h %h %h\n",opA,opB,opC, exp_res,exc);
+        //$fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
         //$fscanf(outfile0,"%h %h %h\n",opA,exp_res,exc);
-        if(((opA&32'h7F800000) != 0 && (opB&32'h7F800000) != 0)) begin
-          start = 1;
+        if(((opA&32'h7F800000) != 0 && (opB&32'h7F800000) != 0) && (opC&32'h7F800000) != 0) begin
+          /*start = 1;
           #10;
           start = 0;
-          while(!valid) #10;
+          while(!valid) #10;*/
           #10;
           test_cnt = test_cnt + 1;
           if(exp_res != result /*|| flags_o != exc*/)
@@ -78,8 +78,20 @@ initial begin
     $fclose(outfile0);
     $stop();
 end
-always #5 clk = ~clk;
+//always #5 clk = ~clk;
 `endif
+
+
+fp_fma  #(.FP_FORMAT(FP32))fp_add_inst
+(
+    .a_i(opA),
+    .b_i(opB),
+    .c_i(opC),
+    .sub_i(1'b0),
+    .rnd_i(rnd),
+
+    .urnd_result_o(urnd_result)
+);
 
 // fp_add  #(.FP_FORMAT(FP32))fp_add_inst
 // (
@@ -91,19 +103,19 @@ always #5 clk = ~clk;
 //     .urnd_result_o(urnd_result)
 // );
 
-fp_div #(.FP_FORMAT(FP32))fp_div_inst
-(
+// fp_div #(.FP_FORMAT(FP32))fp_div_inst
+// (
 
-    .clk_i(clk),
-    .reset_i(rst),
-    .a_i(opA),
-    .b_i(opB),
-    .start_i(start),
-    .rnd_i(rnd),
+//     .clk_i(clk),
+//     .reset_i(rst),
+//     .a_i(opA),
+//     .b_i(opB),
+//     .start_i(start),
+//     .rnd_i(rnd),
 
-    .urnd_result_o(urnd_result),
-    .done_o(valid)
-);
+//     .urnd_result_o(urnd_result),
+//     .done_o(valid)
+// );
 
 // fp_mul #(.FP_FORMAT(FP32))fp_mul_inst
 // (
@@ -133,13 +145,13 @@ fp_div #(.FP_FORMAT(FP32))fp_div_inst
 //     .rnd_result_o(rnd_result)
 // );
 
-// fp_rnd #(.FP_FORMAT(FP32))fp_rnd_inst
-// (
-//     .urnd_result_i(urnd_result),
-//     .rnd_i(rnd),
+fp_rnd #(.FP_FORMAT(FP32))fp_rnd_inst
+(
+    .urnd_result_i(urnd_result),
+    .rnd_i(rnd),
 
-//     .rnd_result_o(rnd_result)
-// );
+    .rnd_result_o(rnd_result)
+);
 
 //if output < INT_WIDTH sign extend
 // fp_f2i #(.FP_FORMAT(FP32), .INT_FORMAT(INT64))fp_f2i_inst
@@ -153,7 +165,7 @@ fp_div #(.FP_FORMAT(FP32))fp_div_inst
 
 
 assign result = urnd_result.u_result;
-// assign flags_o = rnd_result.flags;
+assign flags_o = rnd_result.flags;
 
 /*
 fp_cmp fp_cmp_inst

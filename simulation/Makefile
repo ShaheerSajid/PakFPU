@@ -20,7 +20,7 @@ questa_sim:
 	vlog -sv -work work -f src.args
 	vlog -sv -work work testbench/tb.sv
 	clear
-	vsim -c -t 1ps -L work -voptargs="+acc" tb -do "run -all; exit"
+	vsim -t 1ps -L work -voptargs="+acc" tb -do "do wave_fma.do; run -all; exit"
 	
 verilator_sim:
 	echo "Compiling Testbench"
@@ -60,3 +60,9 @@ questa: gen_test questa_sim
 
 .PHONY: verilator
 verilator: gen_test verilator_sim
+
+.PHONY: clean
+clean: 
+	rm -rf testbench/*.txt
+	rm -rf work
+	rm -rf transcript *.wlf
