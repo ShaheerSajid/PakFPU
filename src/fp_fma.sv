@@ -54,80 +54,122 @@ assign c_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(c_i);
 // Multiply 
 ////////////////////////////////////////////////////////
 logic mul_urpr_s;
-logic [2*MANT_WIDTH + 1:0] mul_urpr_mant;
-logic [EXP_WIDTH + 1:0] mul_urpr_exp;
+logic [2*MANT_WIDTH + 1:0] prod_mant, mul_urpr_mant;
+logic [EXP_WIDTH + 1:0] prod_exp, mul_urpr_exp;
 
 logic mul_invalid;
 
 //compute
-assign mul_urpr_s     = a_decoded.sign ^ b_decoded.sign;
-assign mul_urpr_exp   = a_decoded.exp + b_decoded.exp;
-assign mul_urpr_mant  = {a_info.is_normal, a_decoded.mant} * {b_info.is_normal, b_decoded.mant};
+assign prod_exp    = a_decoded.exp + b_decoded.exp - BIAS;
+assign prod_mant  = {a_info.is_normal, a_decoded.mant} * {b_info.is_normal, b_decoded.mant};
 
-assign mul_invalid    = a_info.is_signalling | b_info.is_signalling | ((a_info.is_zero & b_info.is_inf) | (a_info.is_inf & b_info.is_zero));
+//if product is denormal
+logic [EXP_WIDTH + 1:0] denorm_shift;
+assign denorm_shift = $signed(0)-$signed(prod_exp);
+always_comb
+begin
+  if($signed(prod_exp) <= $signed(0))
+  begin
+    mul_urpr_s     = a_decoded.sign ^ b_decoded.sign;
+    mul_urpr_exp   = {EXP_WIDTH{1'b0}};
+    mul_urpr_mant  = prod_mant >> denorm_shift;
+  end
+  else
+  begin
+    mul_urpr_s     = a_decoded.sign ^ b_decoded.sign;
+    mul_urpr_exp   = prod_exp;
+    mul_urpr_mant  = prod_mant;
+  end 
+end
 
 ////////////////////////////////////////////////////////
 // Add/Sub 
 ////////////////////////////////////////////////////////
-logic [EXP_WIDTH+1:0]exp_diff;
-logic [EXP_WIDTH+1:0]exp_diff_offset;
-logic [EXP_WIDTH+1:0]shamt;
+logic exp_eq, exp_lt;
+logic mant_eq, mant_lt;
+logic lt;
 
-logic add_urpr_s;
-logic [3*MANT_WIDTH+4:0] add_urpr_mant;
-logic [3*MANT_WIDTH+4:0] add_shift_mant;
-logic [EXP_WIDTH+1:0] add_urpr_exp;
+logic [EXP_WIDTH + 1:0]exp_diff;
+logic [MANT_WIDTH + GUARD_BITS + 1:0]shifted_mant;
+logic [MANT_WIDTH + 1:0]bigger_mant;
 
-//precheck mul result
+logic urpr_s;
+logic [MANT_WIDTH + GUARD_BITS + 2 + 1:0] urpr_mant;
+logic [EXP_WIDTH-1:0] urpr_exp;
 
-//compute
-//FIXME
-assign add_urpr_s = mul_urpr_s;
-//calculate exponent
-assign add_urpr_exp = (mul_urpr_exp > c_decoded.exp)? mul_urpr_exp : c_decoded.exp;
-//calculate shift amount
-assign exp_diff         = c_decoded.exp - mul_urpr_exp;
-assign exp_diff_offset  = ($signed(exp_diff) >= $signed(MANT_WIDTH+4))? exp_diff - (MANT_WIDTH+4) : (MANT_WIDTH+4) - (-exp_diff);
+logic sign_o;
+logic [EXP_WIDTH-1:0] exp_o;
+logic [MANT_WIDTH-1:0] mant_o;
 
-assign shamt = ($signed(exp_diff) >= $signed(0))?  $signed(exp_diff_offset) > $signed(0)? exp_diff_offset : 'h0  
-                                                :  $signed(exp_diff_offset) > $signed(3*MANT_WIDTH+5)? 3*MANT_WIDTH+5 : exp_diff_offset;
+logic [EXP_WIDTH:0] stickyindex;
+logic [MANT_WIDTH + 1:0] sigB;
+logic [MANT_WIDTH + 1:0] compressed_mant;
+logic stickybit;
 
-assign add_shift_mant = {c_info.is_normal, c_decoded.mant, {2*MANT_WIDTH+4{1'b0}}} >> shamt;
-//calculate new mantissa (if different signs then subtract)
-assign add_urpr_mant = add_shift_mant + mul_urpr_mant;
+
+// logic denormalA;
+// logic denormalB;
+
+// assign denormalA = (a_info.is_subnormal ^ b_info.is_subnormal) & a_info.is_subnormal;
+// assign denormalB = (a_info.is_subnormal ^ b_info.is_subnormal) & b_info.is_subnormal;
+
+assign exp_eq = (mul_urpr_exp == c_decoded.exp);
+assign exp_lt = (mul_urpr_exp  < c_decoded.exp);
+
+assign mant_eq = (mul_urpr_mant == {1'b0,c_info.is_normal, c_decoded.mant,{MANT_WIDTH{1'b0}}});
+assign mant_lt = (mul_urpr_mant  < {1'b0,c_info.is_normal, c_decoded.mant,{MANT_WIDTH{1'b0}}});
+
+assign lt = exp_lt | (exp_eq & mant_lt);
+
+assign exp_diff = lt? (c_decoded.exp - mul_urpr_exp) 
+                    : (mul_urpr_exp  - c_decoded.exp);
+
+assign shifted_mant = lt? ({mul_urpr_mant[2*MANT_WIDTH + 1 -: MANT_WIDTH + 2 + GUARD_BITS]} >> exp_diff) 
+                        : ({1'b0,c_info.is_normal, c_decoded.mant,{GUARD_BITS{1'b0}}} >> exp_diff);
+assign bigger_mant = lt? {1'b0, c_info.is_normal, c_decoded.mant} : mul_urpr_mant[2*MANT_WIDTH + 1 -: MANT_WIDTH + 2];
+
+assign urpr_s = lt? sub_i ^ c_decoded.sign : mul_urpr_s;
+assign urpr_mant = (mul_urpr_s ^ (sub_i ^ c_decoded.sign))?   ({1'b0, bigger_mant,{GUARD_BITS{1'b0}},1'b0} - {1'b0,shifted_mant,stickybit}) 
+                                                            : ({1'b0, bigger_mant,{GUARD_BITS{1'b0}},1'b0} + {1'b0,shifted_mant,stickybit});
+assign urpr_exp = lt? c_decoded.exp : mul_urpr_exp;
 
 ////////////////////////////////////////////////////////
-// Normalize 
+//  normalize 
 ////////////////////////////////////////////////////////
-logic [3*MANT_WIDTH+4:0] shifted_mant_norm;
-logic [$clog2(FP_WIDTH)-1:0] shamt_norm;
+//added cout and sticky bit
+logic [MANT_WIDTH + GUARD_BITS + 1 + 1:0] shifted_mant_norm;
+//calculate shift
 
-lzc #(.WIDTH(3*MANT_WIDTH+5)) lzc_inst
+logic [$clog2(FP_WIDTH)-1:0] shamt;
+
+lzc #(.WIDTH(MANT_WIDTH+GUARD_BITS)) lzc_inst
 (
-    .a_i(add_urpr_mant),
-    .cnt_o(shamt_norm),
+    .a_i(urpr_mant[MANT_WIDTH + GUARD_BITS + 1 + 1: GUARD_BITS - 1]),
+    .cnt_o(shamt),
     .zero_o()
 );
 
-assign shifted_mant_norm = add_urpr_mant << shamt_norm;
-////////////////////////////////////////////////////////
-// Sticky Genration 
-////////////////////////////////////////////////////////
-logic [EXP_WIDTH:0] stickyindex;
-logic [MANT_WIDTH:0] sigC;
-logic [MANT_WIDTH:0] compressed_mant;
-logic stickybit;
+logic bitout;
+assign {shifted_mant_norm, bitout} = urpr_mant[MANT_WIDTH + GUARD_BITS + 2]?  {urpr_mant[MANT_WIDTH + GUARD_BITS + 2:1],1'b0} >> 1'b1 
+                                                                          :   {urpr_mant[MANT_WIDTH + GUARD_BITS + 2:1],1'b0} << shamt;
 
-assign sigC = {c_info.is_normal, c_decoded.mant};
+assign sign_o = urpr_s;
+assign mant_o = shifted_mant_norm[MANT_WIDTH + (GUARD_BITS - 1) -:MANT_WIDTH];
+assign {exp_cout_o, exp_o} = urpr_mant[MANT_WIDTH + GUARD_BITS + 2]? urpr_exp + 1'b1 : urpr_exp - shamt;
+////////////////////////////////////////////////////////
+//  Sticky logic 
+////////////////////////////////////////////////////////
+assign sigB = lt? {mul_urpr_mant[2*MANT_WIDTH + 1 -: MANT_WIDTH + 2]}
+                : {1'b0,c_info.is_normal, c_decoded.mant};
 
 genvar i;
 generate
-    for(i = 0; i <= MANT_WIDTH; i= i+1)
+    for(i = 0; i <= MANT_WIDTH + 1; i= i+1)
 	begin : combine_sig
-        assign compressed_mant[i] = |sigC[i:0];
+        assign compressed_mant[i] = |sigB[i:0];
 	end
 endgenerate
-assign stickyindex = shamt - (GUARD_BITS + 1);
+assign stickyindex = exp_diff - (GUARD_BITS + 1);
 
 always_comb
     if($signed(stickyindex) < $signed(0))
@@ -136,22 +178,14 @@ always_comb
         stickybit = compressed_mant[MANT_WIDTH];
     else
         stickybit = compressed_mant[stickyindex];
+    
 ////////////////////////////////////////////////////////
-// Output 
+//  Output
 ////////////////////////////////////////////////////////
-logic sign_o;
-logic [EXP_WIDTH-1:0] exp_o;
-logic [MANT_WIDTH-1:0] mant_o;
-
-assign sign_o = add_urpr_s;
-assign mant_o = shifted_mant_norm[3*MANT_WIDTH+3 -: MANT_WIDTH];
-assign exp_o  = add_urpr_exp - BIAS;
+assign rs_o = {shifted_mant_norm[GUARD_BITS - 1], |shifted_mant_norm[GUARD_BITS - 2:0] | stickybit | bitout};
+assign invalid_o = a_info.is_signalling | b_info.is_signalling | ((a_decoded.sign ^ (sub_i ^ b_decoded.sign)) & a_info.is_inf & b_info.is_inf); 
 
 assign round_en_o = 1'b1;
-assign rs_o = 'h0;
-assign invalid_o = 'h0; 
-assign exp_cout_o = 'h0;
-
 assign result_o.sign = sign_o;
 assign result_o.mant = mant_o;
 assign result_o.exp = exp_o;
@@ -161,5 +195,6 @@ assign urnd_result_o.rs =  rs_o;
 assign urnd_result_o.round_en =  round_en_o;
 assign urnd_result_o.invalid =  invalid_o;
 assign urnd_result_o.exp_cout =  exp_cout_o;
+
 assign done_o = start_i;
 endmodule
