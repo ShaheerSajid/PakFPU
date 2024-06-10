@@ -66,3 +66,6 @@ clean:
 	rm -rf testbench/*.txt
 	rm -rf work
 	rm -rf transcript *.wlf
+	rm -rf *.txt
+	rm -rf obj_dir
+	rm -rf *.vcd

@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <stdlib.h>  // for strtol
+#include <stdlib.h> // for strtol
 #include <sstream>
 #include <iostream>
 #include "Vtb.h"
@@ -14,41 +14,44 @@
 
 uint8_t getNum(char ch)
 {
-    uint8_t num = 0;
-    if (ch >= '0' && ch <= '9') {
-        num = ch - 0x30;
-    }
-    else {
-        switch (ch) {
-        case 'A':
-        case 'a':
-            num = 10;
-            break;
-        case 'B':
-        case 'b':
-            num = 11;
-            break;
-        case 'C':
-        case 'c':
-            num = 12;
-            break;
-        case 'D':
-        case 'd':
-            num = 13;
-            break;
-        case 'E':
-        case 'e':
-            num = 14;
-            break;
-        case 'F':
-        case 'f':
-            num = 15;
-            break;
-        default:
-            num = 0;
-        }
-    }
-    return num;
+	uint8_t num = 0;
+	if (ch >= '0' && ch <= '9')
+	{
+		num = ch - 0x30;
+	}
+	else
+	{
+		switch (ch)
+		{
+		case 'A':
+		case 'a':
+			num = 10;
+			break;
+		case 'B':
+		case 'b':
+			num = 11;
+			break;
+		case 'C':
+		case 'c':
+			num = 12;
+			break;
+		case 'D':
+		case 'd':
+			num = 13;
+			break;
+		case 'E':
+		case 'e':
+			num = 14;
+			break;
+		case 'F':
+		case 'f':
+			num = 15;
+			break;
+		default:
+			num = 0;
+		}
+	}
+	return num;
 }
 uint32_t hex_to_int_32(char *in)
 {
@@ -96,8 +99,9 @@ uint32_t hex_to_int_8(char *in)
 }
 
 vluint64_t sim_time = 0;
-int main(int argc, char **argv) {
-		
+int main(int argc, char **argv)
+{
+
 	// Initialize Verilators variables
 	Verilated::commandArgs(argc, argv);
 	Verilated::traceEverOn(true);
@@ -108,74 +112,74 @@ int main(int argc, char **argv) {
 	tb->trace(m_trace, 2);
 	m_trace->open("waveform.vcd");
 
-	FILE * fp;
-    char * line = NULL;
-    size_t len = 0;
-    ssize_t read;
+	FILE *fp;
+	char *line = NULL;
+	size_t len = 0;
+	ssize_t read;
 
 	unsigned int rm = atoi(argv[2]);
 
-    fp = fopen(argv[1],"r");
-    if (fp == NULL)
-        exit(EXIT_FAILURE);
+	fp = fopen(argv[1], "r");
+	if (fp == NULL)
+		exit(EXIT_FAILURE);
 
-	uint64_t a, b, c, exp_res,actual_res;
+	uint64_t a, b, c, exp_res, actual_res;
 	uint8_t exc;
 	uint32_t test_cnt = 0;
 	uint32_t err_cnt = 0;
-	
-    while ((read = getline(&line, &len, fp)) != -1) {
+
+	while ((read = getline(&line, &len, fp)) != -1)
+	{
 
 		int init_size = strlen(line);
 		char delim[] = " ";
 		char *ptr = strtok(line, delim);
 		int j = 0;
-		char* vals[5];
+		char *vals[5];
 		while (ptr != NULL)
 		{
 			vals[j] = ptr;
 			ptr = strtok(NULL, delim);
 			j++;
 		}
-		//calculate 
+		// calculate
 		a = hex_to_int_32(vals[0]);
 
 		// exp_res = hex_to_int_64(vals[1]);
 		// exc = hex_to_int_8(vals[2]);
-		
+
 		b = hex_to_int_32(vals[1]);
-    c = hex_to_int_32(vals[2]);
+		c = hex_to_int_32(vals[2]);
 		exp_res = hex_to_int_32(vals[3]);
 		exc = hex_to_int_8(vals[4]);
 
-		if(((a&0x7F800000) == 0 && (b&0x7F800000) == 0))
+		if (((a & 0x7F800000) == 0 && (b & 0x7F800000) == 0))
 		{
-      test_cnt++;
+			test_cnt++;
 			tb->opA = a;
-			tb->opB = b;	
-      tb->opC = c;	
+			tb->opB = b;
+			tb->opC = c;
 			tb->rnd = rm;
 			tb->eval();
 
 			m_trace->dump(sim_time);
 			sim_time++;
-				
+
 			actual_res = tb->result;
-			if(exp_res != actual_res /*|| tb->flags_o != exc*/)
+			if (exp_res != actual_res /*|| tb->flags_o != exc*/)
 			{
-				//write errors to file!!!
-				fprintf(stderr, "%016lx %016lx %016lx Expected=%016lx Actual=%016lx Ac.Flags=%d Exp.Flags=%d\n", a,b,c,exp_res,actual_res,tb->flags_o,exc);
+				// write errors to file!!!
+				fprintf(stderr, "%016lx %016lx %016lx Expected=%016lx Actual=%016lx Ac.Flags=%d Exp.Flags=%d\n", a, b, c, exp_res, actual_res, tb->flags_o, exc);
 				err_cnt++;
 			}
 		}
-    }
-	fprintf(stdout, "Total Errors = %d/%d\t (%0.2f%%)\n", err_cnt, test_cnt, err_cnt*100.0/test_cnt);
-    fclose(fp);
-    if (line)
-        free(line);
+	}
+	fprintf(stdout, "Total Errors = %d/%d\t (%0.2f%%)\n", err_cnt, test_cnt, err_cnt * 100.0 / test_cnt);
+	fclose(fp);
+	if (line)
+		free(line);
 	m_trace->close();
 	delete tb;
 	delete m_trace;
-    exit(EXIT_SUCCESS);
-
+	exit(EXIT_SUCCESS);
 }

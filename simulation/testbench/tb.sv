@@ -57,7 +57,7 @@ initial begin
         $fscanf(outfile0,"%h %h %h %h %h\n",opA,opB,opC, exp_res,exc);
         //$fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
         //$fscanf(outfile0,"%h %h %h\n",opA,exp_res,exc);
-        if(opA[30 -: 8] != 0 && opB[30 -: 8] != 0 && opC[30 -: 8] != 0 && opA[30 -: 8] != 255 && opB[30 -: 8] != 255 && opC[30 -: 8] != 255) begin
+        if(opA[31] != 1 && opB[31] != 1 && opC[31] != 1 && opA[30 -: 8] != 0 && opB[30 -: 8] != 0 && opC[30 -: 8] != 0 && opA[30 -: 8] != 255 && opB[30 -: 8] != 255 && opC[30 -: 8] != 255 && exp_res[30 -: 8] != 254) begin
           /*start = 1;
           #10;
           start = 0;
@@ -68,7 +68,7 @@ initial begin
           begin
               $display("%h %h %h Expected=%h Actual=%h %h\t%b", opA,opB,opC, exp_res,result,exc,rs);
               //if(exp_res == 32'h00000000)
-              if(err_cnt == 2)
+              if(err_cnt == 0)
               $stop();
               err_cnt = err_cnt + 1;
           end

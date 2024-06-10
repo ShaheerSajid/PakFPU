@@ -17,7 +17,8 @@ module fp_mul
     input [FP_WIDTH-1:0] b_i,
     input start_i,
     output done_o,
-    output Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_o
+    output Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_o,
+    output [2*MANT_WIDTH + 1:0] norm_mant
 );
 
 Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t result_o;
@@ -112,7 +113,7 @@ assign shifted_mant_norm = urpr_mant << shamt;
 assign sign_o = urpr_s;
 assign {exp_cout_o, exp_o} = urpr_mant[2*MANT_WIDTH + 1] ? urpr_exp + 1'b1 : urpr_exp - shamt;
 assign mant_o = urpr_mant[2*MANT_WIDTH + 1] ? urpr_mant[2*MANT_WIDTH -: MANT_WIDTH] : shifted_mant_norm[2*MANT_WIDTH - 1 -: MANT_WIDTH];
-
+assign norm_mant = urpr_mant[2*MANT_WIDTH + 1] ? {urpr_mant[2*MANT_WIDTH : 0],1'b0} : {shifted_mant_norm[2*MANT_WIDTH - 1 : 0],2'b0};
 //calculate RS
 assign rs_o[1] = urpr_mant[2*MANT_WIDTH + 1] ? urpr_mant[MANT_WIDTH] : shifted_mant_norm[MANT_WIDTH - 1];
 assign rs_o[0] = urpr_mant[2*MANT_WIDTH + 1] ? |urpr_mant[MANT_WIDTH-1:0] : |shifted_mant_norm[MANT_WIDTH - 2:0];

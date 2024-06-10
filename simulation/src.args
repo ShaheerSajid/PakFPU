@@ -7,7 +7,7 @@
 ../src/fp_f2i.sv
 ../src/fp_f2d.sv
 ../src/fp_d2f.sv
-../src/fp_fma.sv
+../src/fp_fma_v2.sv
 ../src/int_div.sv
 ../src/fp_div.sv
 ../src/lzc.sv

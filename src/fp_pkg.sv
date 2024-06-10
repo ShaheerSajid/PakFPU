@@ -75,13 +75,14 @@ typedef struct packed {
     int unsigned man_bits;
 } fp_widths_t;
 
-localparam int unsigned NUM_FP_FORMATS = 2; // change me to add formats
+localparam int unsigned NUM_FP_FORMATS = 3; // change me to add formats
 localparam int unsigned FP_FORMAT_BITS = $clog2(NUM_FP_FORMATS);
 
 // FP formats
 typedef enum logic [FP_FORMAT_BITS-1:0] {
 FP32    = 'd0,
-FP64    = 'd1
+FP48    = 'd1,
+FP64    = 'd2
 // add new formats here
 } fp_format_e;
 
@@ -98,6 +99,7 @@ typedef enum logic [INT_FORMAT_BITS-1:0] {
 // Encodings for supported FP formats
 localparam fp_widths_t [NUM_FP_FORMATS-1:0] FP_ENCODINGS  = '{
 '{11, 52}, // IEEE binary64 (double)
+'{8,  48}, //internal FMA 
 '{8,  23} // IEEE binary32 (single)
 // add new formats here
 };
