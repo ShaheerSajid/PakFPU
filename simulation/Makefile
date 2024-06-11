@@ -56,7 +56,7 @@ verilator_sim:
 	
 	
 .PHONY: questa
-questa: gen_test questa_sim
+questa: questa_sim
 
 .PHONY: verilator
 verilator: gen_test verilator_sim

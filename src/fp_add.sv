@@ -17,6 +17,7 @@ module fp_add
     input [FP_WIDTH-1:0] b_i,
     input start_i,
     input sub_i,
+    input [1:0]rs_i,
     input roundmode_e rnd_i,
     output done_o,
     output Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_o
@@ -72,61 +73,61 @@ Input sanity and exception check
 */
 always_comb
 begin
-    round_en_o = 1'b0;
-	result_o = 0;
-    if(a_info.is_nan)
-    begin
-        result_o.sign = a_decoded.sign;
-        result_o.mant = {1'b1, a_decoded.mant[MANT_WIDTH-2:0]};
-        result_o.exp = a_decoded.exp;
-    end
-    else if(b_info.is_nan)
-    begin
-        result_o.sign = b_decoded.sign;
-        result_o.mant = {1'b1, b_decoded.mant[MANT_WIDTH-2:0]};
-        result_o.exp = b_decoded.exp;
-    end
-    else if(a_info.is_inf)
-        result_o = ((a_decoded.sign ^ (sub_i ^ b_decoded.sign)) & a_info.is_inf & b_info.is_inf)? R_IND : a_decoded;
-    else if(a_info.is_normal || a_info.is_subnormal)
-        if(b_info.is_inf)
-        begin
-            result_o.sign = sub_i ^ b_decoded.sign;
-            result_o.mant = b_decoded.mant;
-            result_o.exp = b_decoded.exp;
-        end
-        else if(b_info.is_zero)
-            result_o = a_decoded;
-        else
-        begin
-            if(a_decoded.exp == b_decoded.exp && a_decoded.mant == b_decoded.mant && (a_decoded.sign != (sub_i ^ b_decoded.sign)))
-            begin
-                result_o.sign = (rnd_i == RDN);
-                result_o.mant = 0;
-                result_o.exp = 0;
-            end
-            else if(a_info.is_subnormal && b_info.is_subnormal)//both subnormal
-            begin
-                result_o.sign = sign_o;
-                result_o.mant = urpr_mant[MANT_WIDTH + GUARD_BITS-:MANT_WIDTH];
-                result_o.exp = urpr_mant[MANT_WIDTH + GUARD_BITS + 1] ? 'd1 : 'd0;
-            end
-            else//both normal or mixed
-            begin
+    // round_en_o = 1'b0;
+	// result_o = 0;
+    // if(a_info.is_nan)
+    // begin
+    //     result_o.sign = a_decoded.sign;
+    //     result_o.mant = {1'b1, a_decoded.mant[MANT_WIDTH-2:0]};
+    //     result_o.exp = a_decoded.exp;
+    // end
+    // else if(b_info.is_nan)
+    // begin
+    //     result_o.sign = b_decoded.sign;
+    //     result_o.mant = {1'b1, b_decoded.mant[MANT_WIDTH-2:0]};
+    //     result_o.exp = b_decoded.exp;
+    // end
+    // else if(a_info.is_inf)
+    //     result_o = ((a_decoded.sign ^ (sub_i ^ b_decoded.sign)) & a_info.is_inf & b_info.is_inf)? R_IND : a_decoded;
+    // else if(a_info.is_normal || a_info.is_subnormal)
+    //     if(b_info.is_inf)
+    //     begin
+    //         result_o.sign = sub_i ^ b_decoded.sign;
+    //         result_o.mant = b_decoded.mant;
+    //         result_o.exp = b_decoded.exp;
+    //     end
+    //     else if(b_info.is_zero)
+    //         result_o = a_decoded;
+    //     else
+    //     begin
+    //         if(a_decoded.exp == b_decoded.exp && a_decoded.mant == b_decoded.mant && (a_decoded.sign != (sub_i ^ b_decoded.sign)))
+    //         begin
+    //             result_o.sign = (rnd_i == RDN);
+    //             result_o.mant = 0;
+    //             result_o.exp = 0;
+    //         end
+    //         else if(a_info.is_subnormal && b_info.is_subnormal)//both subnormal
+    //         begin
+    //             result_o.sign = sign_o;
+    //             result_o.mant = urpr_mant[MANT_WIDTH + GUARD_BITS-:MANT_WIDTH];
+    //             result_o.exp = urpr_mant[MANT_WIDTH + GUARD_BITS + 1] ? 'd1 : 'd0;
+    //         end
+    //         else//both normal or mixed
+    //         begin
                 round_en_o = 1'b1;
                 result_o.sign = sign_o;
                 result_o.mant = mant_o;
                 result_o.exp = exp_o;
-            end
-        end
-    else if(a_info.is_zero)
-    begin
-        result_o.sign = sub_i ^ b_decoded.sign;
-        result_o.mant = b_decoded.mant;
-        result_o.exp = b_decoded.exp;
-        if(b_info.is_zero && ((sub_i ^ b_info.is_minus) ^ a_info.is_minus))
-            result_o.sign = (rnd_i == RDN);
-    end
+    //         end
+    //     end
+    // else if(a_info.is_zero)
+    // begin
+    //     result_o.sign = sub_i ^ b_decoded.sign;
+    //     result_o.mant = b_decoded.mant;
+    //     result_o.exp = b_decoded.exp;
+    //     if(b_info.is_zero && ((sub_i ^ b_info.is_minus) ^ a_info.is_minus))
+    //         result_o.sign = (rnd_i == RDN);
+    // end
 end
 
 logic denormalA;

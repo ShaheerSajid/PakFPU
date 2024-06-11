@@ -57,7 +57,7 @@ initial begin
         $fscanf(outfile0,"%h %h %h %h %h\n",opA,opB,opC, exp_res,exc);
         //$fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
         //$fscanf(outfile0,"%h %h %h\n",opA,exp_res,exc);
-        if(opA[31] != 1 && opB[31] != 1 && opC[31] != 1 && opA[30 -: 8] != 0 && opB[30 -: 8] != 0 && opC[30 -: 8] != 0 && opA[30 -: 8] != 255 && opB[30 -: 8] != 255 && opC[30 -: 8] != 255 && exp_res[30 -: 8] != 254) begin
+        if(opA[30 -: 8] != 0 && opB[30 -: 8] != 0 && opC[30 -: 8] != 0 && opA[30 -: 8] != 255 && opB[30 -: 8] != 255 && opC[30 -: 8] != 255 && exp_res[30 -: 8] != 255 && exp_res[30 -: 8] != 254) begin
           /*start = 1;
           #10;
           start = 0;
@@ -164,7 +164,7 @@ fp_rnd #(.FP_FORMAT(FP32))fp_rnd_inst
 // );
 
 
-assign result = urnd_result.u_result;
+assign result = rnd_result.result;
 assign flags_o = rnd_result.flags;
 
 /*
