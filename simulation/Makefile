@@ -13,6 +13,7 @@ gen_test:
 	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_even -seed 1000 -level $(LEVEL) > testbench/test_rne.txt
 	echo "${TEST} RMM"
 	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_maxMag -seed 1000 -level $(LEVEL) > testbench/test_rmm.txt
+	echo $(date) > gen_test
 
 questa_sim:
 	if [ -d "work" ]; then  vdel -lib work -all; fi
@@ -56,7 +57,7 @@ verilator_sim:
 	
 	
 .PHONY: questa
-questa: questa_sim
+questa: gen_test questa_sim
 
 .PHONY: verilator
 verilator: gen_test verilator_sim
@@ -69,3 +70,4 @@ clean:
 	rm -rf *.txt
 	rm -rf obj_dir
 	rm -rf *.vcd
+	rm -rf gen_test

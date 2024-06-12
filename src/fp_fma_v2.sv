@@ -117,7 +117,7 @@ always_comb
     else
         mult_sticky_bit = 1'b0;
 
-assign joined_mul_result = ($signed({mul_result.exp_cout,mul_result.u_result.exp}) <= $signed(0))? {mul_result.u_result.sign,uexp_o,umant_o[2*MANT_WIDTH+1:1],mult_sticky_bit} : {mul_result.u_result.sign,mul_result.u_result.exp,norm_mul_mant};
+assign joined_mul_result = ($signed({mul_result.exp_cout,mul_result.u_result.exp}) <= $signed(0))? {mul_result.u_result.sign,uexp_o,umant_o[2*MANT_WIDTH+1:1],umant_o[0] | mult_sticky_bit} : {mul_result.u_result.sign,mul_result.u_result.exp,norm_mul_mant};
 ////////////////////////////////////////////////////////
 // Add/Sub 
 ////////////////////////////////////////////////////////

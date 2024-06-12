@@ -73,61 +73,71 @@ Input sanity and exception check
 */
 always_comb
 begin
-    // round_en_o = 1'b0;
-	// result_o = 0;
-    // if(a_info.is_nan)
-    // begin
-    //     result_o.sign = a_decoded.sign;
-    //     result_o.mant = {1'b1, a_decoded.mant[MANT_WIDTH-2:0]};
-    //     result_o.exp = a_decoded.exp;
-    // end
-    // else if(b_info.is_nan)
-    // begin
-    //     result_o.sign = b_decoded.sign;
-    //     result_o.mant = {1'b1, b_decoded.mant[MANT_WIDTH-2:0]};
-    //     result_o.exp = b_decoded.exp;
-    // end
-    // else if(a_info.is_inf)
-    //     result_o = ((a_decoded.sign ^ (sub_i ^ b_decoded.sign)) & a_info.is_inf & b_info.is_inf)? R_IND : a_decoded;
-    // else if(a_info.is_normal || a_info.is_subnormal)
-    //     if(b_info.is_inf)
-    //     begin
-    //         result_o.sign = sub_i ^ b_decoded.sign;
-    //         result_o.mant = b_decoded.mant;
-    //         result_o.exp = b_decoded.exp;
-    //     end
-    //     else if(b_info.is_zero)
-    //         result_o = a_decoded;
-    //     else
-    //     begin
-    //         if(a_decoded.exp == b_decoded.exp && a_decoded.mant == b_decoded.mant && (a_decoded.sign != (sub_i ^ b_decoded.sign)))
-    //         begin
-    //             result_o.sign = (rnd_i == RDN);
-    //             result_o.mant = 0;
-    //             result_o.exp = 0;
-    //         end
-    //         else if(a_info.is_subnormal && b_info.is_subnormal)//both subnormal
-    //         begin
-    //             result_o.sign = sign_o;
-    //             result_o.mant = urpr_mant[MANT_WIDTH + GUARD_BITS-:MANT_WIDTH];
-    //             result_o.exp = urpr_mant[MANT_WIDTH + GUARD_BITS + 1] ? 'd1 : 'd0;
-    //         end
-    //         else//both normal or mixed
-    //         begin
+    round_en_o = 1'b0;
+	result_o = 0;
+    if(a_info.is_nan)
+    begin
+        // result_o.sign = a_decoded.sign;
+        // result_o.mant = {1'b1, a_decoded.mant[MANT_WIDTH-2:0]};
+        // result_o.exp = a_decoded.exp;
+        round_en_o = 1'b1;
+        result_o.sign = sign_o;
+        result_o.mant = mant_o;
+        result_o.exp = exp_o;
+    end
+    if(b_info.is_nan)
+    begin
+        result_o.sign = b_decoded.sign;
+        result_o.mant = {1'b1, b_decoded.mant[MANT_WIDTH-2:0]};
+        result_o.exp = b_decoded.exp;
+    end
+    else if(a_info.is_inf)
+    begin
+        // result_o = ((a_decoded.sign ^ (sub_i ^ b_decoded.sign)) & a_info.is_inf & b_info.is_inf)? R_IND : a_decoded;
+        round_en_o = 1'b1;
+        result_o.sign = sign_o;
+        result_o.mant = mant_o;
+        result_o.exp = exp_o;
+    end
+    else if(a_info.is_normal || a_info.is_subnormal)
+        if(b_info.is_inf)
+        begin
+            result_o.sign = sub_i ^ b_decoded.sign;
+            result_o.mant = b_decoded.mant;
+            result_o.exp = b_decoded.exp;
+        end
+        else if(b_info.is_zero)
+            result_o = a_decoded;
+        else
+        begin
+            if(a_decoded.exp == b_decoded.exp && a_decoded.mant == b_decoded.mant && (a_decoded.sign != (sub_i ^ b_decoded.sign)))
+            begin
+                result_o.sign = (rnd_i == RDN);
+                result_o.mant = 0;
+                result_o.exp = 0;
+            end
+            else if(a_info.is_subnormal && b_info.is_subnormal)//both subnormal
+            begin
+                result_o.sign = sign_o;
+                result_o.mant = urpr_mant[MANT_WIDTH + GUARD_BITS-:MANT_WIDTH];
+                result_o.exp = urpr_mant[MANT_WIDTH + GUARD_BITS + 1] ? 'd1 : 'd0;
+            end
+            else//both normal or mixed
+            begin
                 round_en_o = 1'b1;
                 result_o.sign = sign_o;
                 result_o.mant = mant_o;
                 result_o.exp = exp_o;
-    //         end
-    //     end
-    // else if(a_info.is_zero)
-    // begin
-    //     result_o.sign = sub_i ^ b_decoded.sign;
-    //     result_o.mant = b_decoded.mant;
-    //     result_o.exp = b_decoded.exp;
-    //     if(b_info.is_zero && ((sub_i ^ b_info.is_minus) ^ a_info.is_minus))
-    //         result_o.sign = (rnd_i == RDN);
-    // end
+            end
+        end
+    else if(a_info.is_zero)
+    begin
+        result_o.sign = sub_i ^ b_decoded.sign;
+        result_o.mant = b_decoded.mant;
+        result_o.exp = b_decoded.exp;
+        if(b_info.is_zero && ((sub_i ^ b_info.is_minus) ^ a_info.is_minus))
+            result_o.sign = (rnd_i == RDN);
+    end
 end
 
 logic denormalA;
@@ -147,9 +157,9 @@ assign lt = exp_lt | (exp_eq & mant_lt);
 assign exp_diff = lt? (b_decoded.exp - a_decoded.exp) 
                     : (a_decoded.exp - b_decoded.exp);
 
-assign shifted_mant = lt? ({{a_info.is_normal, a_decoded.mant},{GUARD_BITS{1'b0}}} >> (denormalA ? exp_diff - 1 : exp_diff)) 
+assign shifted_mant = lt? ({{a_info.is_normal | a_info.is_nan | a_info.is_inf, a_decoded.mant},{GUARD_BITS{1'b0}}} >> (denormalA ? exp_diff - 1 : exp_diff)) 
                         : ({{b_info.is_normal, b_decoded.mant},{GUARD_BITS{1'b0}}} >> (denormalB ? exp_diff - 1 : exp_diff));
-assign bigger_mant = lt? {b_info.is_normal, b_decoded.mant} : {a_info.is_normal, a_decoded.mant};
+assign bigger_mant = lt? {b_info.is_normal, b_decoded.mant} : {a_info.is_normal | a_info.is_nan | a_info.is_inf, a_decoded.mant};
 
 assign urpr_s = lt? sub_i ^ b_decoded.sign : a_decoded.sign;
 assign urpr_mant = (a_decoded.sign ^ (sub_i ^ b_decoded.sign))? ({1'b0, bigger_mant,{GUARD_BITS{1'b0}},1'b0} - {1'b0,shifted_mant,stickybit}) 
