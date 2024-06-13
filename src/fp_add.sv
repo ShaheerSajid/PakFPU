@@ -20,6 +20,7 @@ module fp_add
     input [1:0]rs_i,
     input roundmode_e rnd_i,
     output done_o,
+    output logic round_only,
     output Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_o
 
 );
@@ -75,6 +76,7 @@ always_comb
 begin
     round_en_o = 1'b0;
 	result_o = 0;
+    round_only = 1'b0;
     if(a_info.is_nan)
     begin
         // result_o.sign = a_decoded.sign;
@@ -108,7 +110,8 @@ begin
         end
         else if(b_info.is_zero)
         begin
-            round_en_o = ~a_info.is_subnormal;
+            round_en_o = 1'b1;
+            round_only = 1'b1;
             result_o = a_decoded;
         end
         else
@@ -121,6 +124,8 @@ begin
             end
             else if(a_info.is_subnormal && b_info.is_subnormal)//both subnormal
             begin
+                round_en_o = 1'b1;
+                round_only = 1'b1;
                 result_o.sign = sign_o;
                 result_o.mant = urpr_mant[MANT_WIDTH + GUARD_BITS-:MANT_WIDTH];
                 result_o.exp = urpr_mant[MANT_WIDTH + GUARD_BITS + 1] ? 'd1 : 'd0;

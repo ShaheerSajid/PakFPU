@@ -11,7 +11,7 @@ module fp_rnd
 (
     input Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_i,
     input roundmode_e rnd_i,
-
+    input round_only,
     output Structs #(.FP_FORMAT(FP_FORMAT))::round_res_t rnd_result_o
 );
 
@@ -140,7 +140,7 @@ begin
             end
         endcase
     end
-    else if(round_en_i && $signed(exp_o) <= $signed(0))
+    else if(round_en_i && $signed(exp_o) <= $signed(0) && !round_only)
     begin
         out_o.sign  = usign_o;
         out_o.exp  = urounded_mant[MANT_WIDTH]? 'd1 : 'd0;

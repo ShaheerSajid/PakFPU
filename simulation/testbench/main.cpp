@@ -153,7 +153,7 @@ int main(int argc, char **argv)
 		exp_res = hex_to_int_32(vals[3]);
 		exc = hex_to_int_8(vals[4]);
 
-		if (((a & 0x7F800000) == 0 && (b & 0x7F800000) == 0))
+		if (((exp_res & 0x7F800000) != 0x7F800000 && (exp_res & 0x7F700000) != 0x7F700000))
 		{
 			test_cnt++;
 			tb->opA = a;

@@ -20,6 +20,7 @@ module fp_fma
     input sub_i,
     input roundmode_e rnd_i,
     output done_o,
+    output logic round_only,
     output Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_o
 
 );
@@ -135,6 +136,7 @@ fp_add  #(.FP_FORMAT(FP48)) fp_add_inst
     .sub_i(1'b0),
     .rs_i(mult_rs),
     .rnd_i(rnd_i),
+    .round_only(round_only),
     .urnd_result_o(add_result)
 );
 

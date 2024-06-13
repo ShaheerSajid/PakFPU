@@ -23,6 +23,7 @@ logic round_en;
 logic [1:0] exp_cout;
 logic invalid;
 logic lt,le,eq;
+logic round_only;
 `else
 logic [1:0] rs;
 logic [31:0] result;
@@ -42,12 +43,13 @@ logic clk;
 logic rst;
 logic start;
 logic valid;
+logic round_only;
 
 initial begin
-    outfile0=$fopen("testbench/test_rdn.txt","r");
+    outfile0=$fopen("testbench/test_rne.txt","r");
     err_cnt = 0;
     test_cnt = 0;
-    rnd = RDN;
+    rnd = RNE;
     clk = 0;
     rst = 0;
     start = 0;
@@ -57,7 +59,7 @@ initial begin
         $fscanf(outfile0,"%h %h %h %h %h\n",opA,opB,opC, exp_res,exc);
         //$fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
         //$fscanf(outfile0,"%h %h %h\n",opA,exp_res,exc);
-        if(opC[30 -: 8] != 0 && opA[30 -: 8] != 255 && opB[30 -: 8] != 255 && opC[30 -: 8] != 255 && exp_res[30 -: 8] != 255 && exp_res[30 -: 8] != 254) begin
+        if(exp_res[30 -: 8] != 254) begin
           /*start = 1;
           #10;
           start = 0;
@@ -89,7 +91,7 @@ fp_fma  #(.FP_FORMAT(FP32))fp_add_inst
     .c_i(opC),
     .sub_i(1'b0),
     .rnd_i(rnd),
-
+    .round_only(round_only),
     .urnd_result_o(urnd_result)
 );
 
@@ -149,7 +151,7 @@ fp_rnd #(.FP_FORMAT(FP32))fp_rnd_inst
 (
     .urnd_result_i(urnd_result),
     .rnd_i(rnd),
-
+    .round_only(round_only),
     .rnd_result_o(rnd_result)
 );
 
