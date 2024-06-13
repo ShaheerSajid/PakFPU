@@ -107,7 +107,10 @@ begin
             result_o.exp = b_decoded.exp;
         end
         else if(b_info.is_zero)
+        begin
+            round_en_o = ~a_info.is_subnormal;
             result_o = a_decoded;
+        end
         else
         begin
             if(a_decoded.exp == b_decoded.exp && a_decoded.mant == b_decoded.mant && (a_decoded.sign != (sub_i ^ b_decoded.sign)))
