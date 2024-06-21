@@ -18,9 +18,12 @@ module fp_add
     input start_i,
     input sub_i,
     input [1:0]rs_i,
+    input [1:0]exp_in,
+    input round_en,
     input roundmode_e rnd_i,
     output done_o,
     output logic round_only,
+    output logic mul_ovf,
     output Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_o
 
 );
@@ -72,20 +75,32 @@ Input sanity and exception check
 3) any denorm
 4) any infinity
 */
+
+logic [EXP_WIDTH+1:0] res_exp;
+logic [EXP_WIDTH+1:0] comb_exp;
+logic inf_cond;
+assign comb_exp = {exp_in, a_decoded.exp};
+
 always_comb
 begin
     round_en_o = 1'b0;
 	result_o = 0;
     round_only = 1'b0;
+    mul_ovf = 1'b0;
     if(a_info.is_nan)
     begin
-        // result_o.sign = a_decoded.sign;
-        // result_o.mant = {1'b1, a_decoded.mant[MANT_WIDTH-2:0]};
-        // result_o.exp = a_decoded.exp;
+        if(~round_en)
+        begin
+            result_o.sign = a_decoded.sign;
+            result_o.mant = {1'b1, a_decoded.mant[MANT_WIDTH-2:0]};
+            result_o.exp = a_decoded.exp;
+        end
+        else begin
         round_en_o = 1'b1;
         result_o.sign = sign_o;
         result_o.mant = mant_o;
         result_o.exp = exp_o;
+        end
     end
     if(b_info.is_nan)
     begin
@@ -95,11 +110,19 @@ begin
     end
     else if(a_info.is_inf)
     begin
-        // result_o = ((a_decoded.sign ^ (sub_i ^ b_decoded.sign)) & a_info.is_inf & b_info.is_inf)? R_IND : a_decoded;
-        round_en_o = 1'b1;
-        result_o.sign = sign_o;
-        result_o.mant = mant_o;
-        result_o.exp = exp_o;
+        if(~round_en)
+            result_o = ((a_decoded.sign ^ (sub_i ^ b_decoded.sign)) & a_info.is_inf & b_info.is_inf)? R_IND : a_decoded;
+        else begin
+            round_en_o = 1'b1;
+            result_o.sign = sign_o;
+            result_o.mant = mant_o;
+            result_o.exp = exp_o;
+        end
+    end
+    else if(inf_cond & ~b_info.is_inf)
+    begin
+        mul_ovf = 1'b1;
+        result_o = {a_decoded.sign, INF};
     end
     else if(a_info.is_normal || a_info.is_subnormal)
         if(b_info.is_inf)
@@ -187,6 +210,9 @@ lzc #(.WIDTH(MANT_WIDTH+GUARD_BITS)) lzc_inst
     .cnt_o(shamt),
     .zero_o()
 );
+
+assign res_exp = $signed(comb_exp) - $signed(shamt);
+assign inf_cond  = ($signed(comb_exp) >  $signed(2**EXP_WIDTH-1) );
 
 logic bitout;
 assign {shifted_mant_norm, bitout} = urpr_mant[MANT_WIDTH + GUARD_BITS + 2]?  {urpr_mant[MANT_WIDTH + GUARD_BITS + 2:1],1'b0} >> 1'b1 

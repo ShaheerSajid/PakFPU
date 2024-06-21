@@ -21,6 +21,7 @@ module fp_fma
     input roundmode_e rnd_i,
     output done_o,
     output logic round_only,
+    output logic mul_ovf,
     output Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_o
 
 );
@@ -47,9 +48,6 @@ assign a_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(a_i);
 assign b_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(b_i);
 assign c_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(c_i);
 
-////////////////////////////////////////////////////////
-// Pre-check 
-////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////
 // Multiply 
@@ -128,15 +126,18 @@ end
 ////////////////////////////////////////////////////////
 // Add/Sub 
 ////////////////////////////////////////////////////////
-
+logic mul_ovf_sig;
 fp_add  #(.FP_FORMAT(FP48)) fp_add_inst
 (
     .a_i(joined_mul_result),
     .b_i({c_i, {MANT_WIDTH+2{1'b0}}}),
     .sub_i(1'b0),
+    .exp_in(mul_result.exp_cout),
     .rs_i(mult_rs),
+    .round_en(mul_result.round_en),
     .rnd_i(rnd_i),
     .round_only(round_only),
+    .mul_ovf(mul_ovf_sig),
     .urnd_result_o(add_result)
 );
 
@@ -147,12 +148,52 @@ assign mant_o = add_result.u_result.mant[2*MANT_WIDTH + 1 -: MANT_WIDTH];
 ////////////////////////////////////////////////////////
 assign rs_o[1] = add_result.u_result.mant[MANT_WIDTH + 1];
 assign rs_o[0] = (|add_result.u_result.mant[MANT_WIDTH:0]) | (|add_result.rs) | mult_sticky_bit;
-assign invalid_o = a_info.is_signalling | b_info.is_signalling | ((a_decoded.sign ^ (sub_i ^ b_decoded.sign)) & a_info.is_inf & b_info.is_inf); 
+assign invalid_o = a_info.is_signalling | b_info.is_signalling | c_info.is_signalling | 
+                    ((a_info.is_inf & b_info.is_zero) | (a_info.is_zero & b_info.is_inf)) |
+                    (!a_info.is_nan && !b_info.is_nan && c_info.is_inf & ((mul_result.u_result.sign ^ (sub_i ^ c_decoded.sign)) & (a_info.is_inf | b_info.is_inf))); 
 
-assign round_en_o       = add_result.round_en;
-assign result_o.sign    = add_result.u_result.sign;
-assign result_o.mant    = mant_o;
-assign result_o.exp     = add_result.u_result.exp;
+////////////////////////////////////////////////////////
+// Pre-check 
+////////////////////////////////////////////////////////
+always_comb
+begin
+    round_en_o = 1'b0;
+	result_o = 0;
+    mul_ovf = 1'b0;
+
+    if((a_info.is_inf & b_info.is_zero) | (a_info.is_zero & b_info.is_inf))
+        result_o = R_IND;
+    else if(a_info.is_nan)
+    begin
+        result_o.sign = a_decoded.sign;
+        result_o.mant = {1'b1, a_decoded.mant[MANT_WIDTH-2:0]};
+        result_o.exp = a_decoded.exp;
+    end
+    else if(b_info.is_nan)
+    begin
+        result_o.sign = b_decoded.sign;
+        result_o.mant = {1'b1, b_decoded.mant[MANT_WIDTH-2:0]};
+        result_o.exp = b_decoded.exp;
+    end
+    else if(c_info.is_nan)
+    begin
+        result_o.sign = c_decoded.sign;
+        result_o.mant = {1'b1, c_decoded.mant[MANT_WIDTH-2:0]};
+        result_o.exp = c_decoded.exp;
+    end
+    else if(c_info.is_inf)
+        // This should be calculated as finite inputs can result in infinite output due to ovf
+        // Maybe you already checked that in adder
+        result_o = ((mul_result.u_result.sign ^ (sub_i ^ c_decoded.sign)) & (a_info.is_inf | b_info.is_inf))? R_IND : c_decoded;
+    else
+    begin
+        round_en_o       = add_result.round_en;
+        result_o.sign    = add_result.u_result.sign;
+        result_o.mant    = mant_o;
+        result_o.exp     = add_result.u_result.exp;
+        mul_ovf          = mul_ovf_sig & ~invalid_o;
+    end
+end
 
 assign urnd_result_o.u_result   =  result_o;
 assign urnd_result_o.rs         =  rs_o;

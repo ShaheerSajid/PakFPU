@@ -24,6 +24,8 @@ logic [1:0] exp_cout;
 logic invalid;
 logic lt,le,eq;
 logic round_only;
+logic mul_ovf;
+logic mul_uf;
 `else
 logic [1:0] rs;
 logic [31:0] result;
@@ -44,12 +46,14 @@ logic rst;
 logic start;
 logic valid;
 logic round_only;
+logic mul_ovf;
+logic mul_uf;
 
 initial begin
-    outfile0=$fopen("testbench/test_rne.txt","r");
+    outfile0=$fopen("testbench/test_rdn.txt","r");
     err_cnt = 0;
     test_cnt = 0;
-    rnd = RNE;
+    rnd = RDN;
     clk = 0;
     rst = 0;
     start = 0;
@@ -66,11 +70,11 @@ initial begin
           while(!valid) #10;*/
           #10;
           test_cnt = test_cnt + 1;
-          if(exp_res != result /*|| flags_o != exc*/)
+          if(exp_res != result || flags_o != exc)
           begin
-              $display("%h %h %h Expected=%h Actual=%h %h\t%b", opA,opB,opC, exp_res,result,exc,rs);
+              $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b", opA,opB,opC, exp_res,result,exc,flags_o);
               //if(exp_res == 32'h00000000)
-              if(err_cnt == 0)
+              //if(err_cnt == 0)
               $stop();
               err_cnt = err_cnt + 1;
           end
@@ -92,6 +96,8 @@ fp_fma  #(.FP_FORMAT(FP32))fp_add_inst
     .sub_i(1'b0),
     .rnd_i(rnd),
     .round_only(round_only),
+    .mul_ovf(mul_ovf),
+    .mul_uf(mul_uf),
     .urnd_result_o(urnd_result)
 );
 
@@ -167,7 +173,11 @@ fp_rnd #(.FP_FORMAT(FP32))fp_rnd_inst
 
 
 assign result = rnd_result.result;
-assign flags_o = rnd_result.flags;
+assign flags_o.NV = rnd_result.flags.NV;
+assign flags_o.DZ = rnd_result.flags.DZ;
+assign flags_o.OF = rnd_result.flags.OF | mul_ovf;
+assign flags_o.UF = rnd_result.flags.UF;
+assign flags_o.NX = rnd_result.flags.NX | mul_ovf;
 
 /*
 fp_cmp fp_cmp_inst

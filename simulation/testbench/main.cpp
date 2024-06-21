@@ -153,7 +153,7 @@ int main(int argc, char **argv)
 		exp_res = hex_to_int_32(vals[3]);
 		exc = hex_to_int_8(vals[4]);
 
-		if (((exp_res & 0x7F800000) != 0x7F800000 && (exp_res & 0x7F700000) != 0x7F700000))
+		if (((exp_res & 0x7F700000) != 0x7F700000))
 		{
 			test_cnt++;
 			tb->opA = a;
@@ -166,7 +166,7 @@ int main(int argc, char **argv)
 			sim_time++;
 
 			actual_res = tb->result;
-			if (exp_res != actual_res /*|| tb->flags_o != exc*/)
+			if (exp_res != actual_res || tb->flags_o != exc)
 			{
 				// write errors to file!!!
 				fprintf(stderr, "%016lx %016lx %016lx Expected=%016lx Actual=%016lx Ac.Flags=%d Exp.Flags=%d\n", a, b, c, exp_res, actual_res, tb->flags_o, exc);
