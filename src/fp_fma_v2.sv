@@ -155,7 +155,7 @@ assign invalid_o = a_info.is_signalling | b_info.is_signalling | c_info.is_signa
 
 always_comb
     case (rnd_i)
-        RNE, RMM:   mul_uround_out = 1'b0;//~(|add_result.rs) & (rs_o == 2'b01 | rs_o == 2'b10 | (rs_o == 2'b11 & mul_result.rs == 2'b00));
+        RNE, RMM :  mul_uround_out = ~add_result.u_result.mant[MANT_WIDTH];
         default:    mul_uround_out = ~(|add_result.rs) & (rs_o == 2'b01 | rs_o == 2'b10);
     endcase
 ////////////////////////////////////////////////////////
