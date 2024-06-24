@@ -22,6 +22,8 @@ module fp_fma
     output done_o,
     output logic round_only,
     output logic mul_ovf,
+    output logic mul_uf,
+    output logic mul_uround_out,
     output Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_o
 
 );
@@ -122,7 +124,6 @@ always_comb begin
     else
         joined_mul_result = {mul_result.u_result.sign,mul_result.u_result.exp,norm_mul_mant};
 end
-//assign joined_mul_result = ($signed({mul_result.exp_cout,mul_result.u_result.exp}) <= $signed(0))? {mul_result.u_result.sign,uexp_o,umant_o[2*MANT_WIDTH+1:1],umant_o[0] | mult_sticky_bit} : {mul_result.u_result.sign,mul_result.u_result.exp,norm_mul_mant};
 ////////////////////////////////////////////////////////
 // Add/Sub 
 ////////////////////////////////////////////////////////
@@ -133,11 +134,11 @@ fp_add  #(.FP_FORMAT(FP48)) fp_add_inst
     .b_i({c_i, {MANT_WIDTH+2{1'b0}}}),
     .sub_i(1'b0),
     .exp_in(mul_result.exp_cout),
-    .rs_i(mult_rs),
     .round_en(mul_result.round_en),
     .rnd_i(rnd_i),
     .round_only(round_only),
     .mul_ovf(mul_ovf_sig),
+    .mul_uf(mul_uf),
     .urnd_result_o(add_result)
 );
 
@@ -150,8 +151,13 @@ assign rs_o[1] = add_result.u_result.mant[MANT_WIDTH + 1];
 assign rs_o[0] = (|add_result.u_result.mant[MANT_WIDTH:0]) | (|add_result.rs) | mult_sticky_bit;
 assign invalid_o = a_info.is_signalling | b_info.is_signalling | c_info.is_signalling | 
                     ((a_info.is_inf & b_info.is_zero) | (a_info.is_zero & b_info.is_inf)) |
-                    (!a_info.is_nan && !b_info.is_nan && c_info.is_inf & ((mul_result.u_result.sign ^ (sub_i ^ c_decoded.sign)) & (a_info.is_inf | b_info.is_inf))); 
+                    (!a_info.is_nan && !b_info.is_nan && c_info.is_inf & ((mul_result.u_result.sign ^ (sub_i ^ c_decoded.sign)) & (a_info.is_inf | b_info.is_inf)));
 
+always_comb
+    case (rnd_i)
+        RNE, RMM:   mul_uround_out = 1'b0;//~(|add_result.rs) & (rs_o == 2'b01 | rs_o == 2'b10 | (rs_o == 2'b11 & mul_result.rs == 2'b00));
+        default:    mul_uround_out = ~(|add_result.rs) & (rs_o == 2'b01 | rs_o == 2'b10);
+    endcase
 ////////////////////////////////////////////////////////
 // Pre-check 
 ////////////////////////////////////////////////////////

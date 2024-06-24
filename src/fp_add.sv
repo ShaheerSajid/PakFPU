@@ -17,13 +17,13 @@ module fp_add
     input [FP_WIDTH-1:0] b_i,
     input start_i,
     input sub_i,
-    input [1:0]rs_i,
     input [1:0]exp_in,
     input round_en,
     input roundmode_e rnd_i,
     output done_o,
     output logic round_only,
     output logic mul_ovf,
+    output logic mul_uf,
     output Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_o
 
 );
@@ -76,7 +76,6 @@ Input sanity and exception check
 4) any infinity
 */
 
-logic [EXP_WIDTH+1:0] res_exp;
 logic [EXP_WIDTH+1:0] comb_exp;
 logic inf_cond;
 assign comb_exp = {exp_in, a_decoded.exp};
@@ -87,6 +86,7 @@ begin
 	result_o = 0;
     round_only = 1'b0;
     mul_ovf = 1'b0;
+    mul_uf = 1'b0;
     if(a_info.is_nan)
     begin
         if(~round_en)
@@ -135,6 +135,7 @@ begin
         begin
             round_en_o = 1'b1;
             round_only = 1'b1;
+            mul_uf = 1'b1;
             result_o = a_decoded;
         end
         else
@@ -149,6 +150,7 @@ begin
             begin
                 round_en_o = 1'b1;
                 round_only = 1'b1;
+                mul_uf = 1'b1;
                 result_o.sign = sign_o;
                 result_o.mant = urpr_mant[MANT_WIDTH + GUARD_BITS-:MANT_WIDTH];
                 result_o.exp = urpr_mant[MANT_WIDTH + GUARD_BITS + 1] ? 'd1 : 'd0;
@@ -211,7 +213,6 @@ lzc #(.WIDTH(MANT_WIDTH+GUARD_BITS)) lzc_inst
     .zero_o()
 );
 
-assign res_exp = $signed(comb_exp) - $signed(shamt);
 assign inf_cond  = ($signed(comb_exp) >  $signed(2**EXP_WIDTH-1) );
 
 logic bitout;

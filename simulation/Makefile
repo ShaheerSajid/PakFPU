@@ -4,15 +4,15 @@ LEVEL = $(LEVEL)
 gen_test: 
 	echo "Generating Tests"
 	echo "${TEST} RDN"
-	./testfloat/testfloat_gen ${TEST} -tininessafter -rmin -seed 1000 -level $(LEVEL) > testbench/test_rdn.txt 
+	./testfloat/testfloat_gen ${TEST} -tininessafter -rmin -seed 1000 -n 10000000 -level $(LEVEL) > testbench/test_rdn.txt 
 	echo "${TEST} RUP"
-	./testfloat/testfloat_gen ${TEST} -tininessafter -rmax -seed 1000 -level $(LEVEL) > testbench/test_rup.txt
+	./testfloat/testfloat_gen ${TEST} -tininessafter -rmax -seed 1000 -n 10000000 -level $(LEVEL) > testbench/test_rup.txt
 	echo "${TEST} RTZ"
-	./testfloat/testfloat_gen ${TEST} -tininessafter -rminMag -seed 1000 -level $(LEVEL) > testbench/test_rtz.txt
+	./testfloat/testfloat_gen ${TEST} -tininessafter -rminMag -seed 1000 -n 10000000 -level $(LEVEL) > testbench/test_rtz.txt
 	echo "${TEST} RNE"
-	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_even -seed 1000 -level $(LEVEL) > testbench/test_rne.txt
+	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_even -seed 1000 -n 10000000 -level $(LEVEL) > testbench/test_rne.txt
 	echo "${TEST} RMM"
-	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_maxMag -seed 1000 -level $(LEVEL) > testbench/test_rmm.txt
+	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_maxMag -seed 1000 -n 10000000 -level $(LEVEL) > testbench/test_rmm.txt
 	echo $(date) > gen_test
 
 questa_sim:

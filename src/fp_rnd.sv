@@ -12,6 +12,7 @@ module fp_rnd
     input Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_i,
     input roundmode_e rnd_i,
     input round_only,
+    input mul_ovf,
     output Structs #(.FP_FORMAT(FP_FORMAT))::round_res_t rnd_result_o
 );
 
@@ -98,7 +99,7 @@ assign flags_o.DZ = 1'b0;
 
 always_comb
 begin
-    if(round_en_i && flags_o.OF)
+    if((round_en_i && flags_o.OF) | mul_ovf)
     begin
         out_o.sign = sign_o;
         case(rnd_i)
