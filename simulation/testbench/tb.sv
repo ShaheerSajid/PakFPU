@@ -90,7 +90,7 @@ end
 `endif
 
 
-fp_fma  #(.FP_FORMAT(FP32))fp_add_inst
+fp_fma  #(.FP_FORMAT(FP32))fp_fma_inst
 (
     .a_i(opA),
     .b_i(opB),
