@@ -56,8 +56,10 @@ assign c_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(c_i);
 ////////////////////////////////////////////////////////
 Structs #(.FP_FORMAT(FP48))::uround_res_t add_result;
 localparam int unsigned FP_WIDTH_ADDER = fp_width(FP48);
-localparam int unsigned EXP_WIDTH_ADDER = exp_bits(FP48),
-localparam int unsigned MANT_WIDTH_ADDER = man_bits(FP48),
+localparam int unsigned EXP_WIDTH_ADDER = exp_bits(FP48);
+localparam int unsigned MANT_WIDTH_ADDER = man_bits(FP48);
+localparam INF_ADDER = {{EXP_WIDTH_ADDER{1'b1}}, {MANT_WIDTH_ADDER{1'b0}}};
+localparam R_IND_ADDER = {1'b1, {EXP_WIDTH_ADDER{1'b1}}, 1'b1, {MANT_WIDTH_ADDER-1{1'b0}}};
 
 
 Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t mul_result;
@@ -153,9 +155,8 @@ logic [2*MANT_WIDTH + 2:0] compressed_mant;
 logic new_stickybit;
 
 assign sigB = {1'b1, mul_norm_mant[2*MANT_WIDTH + 1:0]};
-genvar i;
 generate
-    for(i = 0; i <= (2*MANT_WIDTH+2); i= i+1)
+    for(genvar i = 0; i <= (2*MANT_WIDTH+2); i= i+1)
 	begin : combine_sig
         assign compressed_mant[i] = |sigB[i:0];
 	end
@@ -187,10 +188,22 @@ end
 // Add/Sub 
 ////////////////////////////////////////////////////////
 logic mul_ovf_sig;
+logic [FP_WIDTH_ADDER-1:0] c_int;
+assign c_int = {c_i, {MANT_WIDTH+2{1'b0}}};
 
+Structs #(.FP_FORMAT(FP48))::fp_encoding_t ab_decoded;
+Structs #(.FP_FORMAT(FP48))::fp_encoding_t c_int_decoded;
 
+assign ab_decoded       = joined_mul_result;
+assign c_int_decoded    = c_int;
+
+fp_info_t ab_info;
+fp_info_t c_int_info;
+
+assign ab_info = Functions #(.FP_FORMAT(FP48))::fp_info(joined_mul_result);
+assign c_int_info = Functions #(.FP_FORMAT(FP48))::fp_info(c_int);
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
-fp_add  #(.FP_FORMAT(FP48)) fp_add_inst
+/*fp_add  #(.FP_FORMAT(FP48)) fp_add_inst
 (
     .a_i(joined_mul_result),
     .b_i({c_i, {MANT_WIDTH+2{1'b0}}}),
@@ -203,7 +216,8 @@ fp_add  #(.FP_FORMAT(FP48)) fp_add_inst
     .mul_uf(mul_uf),
     .urnd_result_o(add_result)
 );
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t adder_result_o;
+*/
+Structs #(.FP_FORMAT(FP48))::fp_encoding_t adder_result_o;
 logic [1:0] adder_rs_o;
 logic adder_round_en_o;
 logic [1:0] adder_exp_cout_o;
@@ -231,22 +245,22 @@ logic adder_stickybit;
 
 logic [EXP_WIDTH_ADDER+1:0] comb_exp;
 logic inf_cond;
-assign comb_exp = {exp_in, a_decoded.exp};
+assign comb_exp = {mul_exp_cout, ab_decoded.exp};
 
 always_comb
 begin
     adder_round_en_o = 1'b0;
 	adder_result_o = 0;
     round_only = 1'b0;
-    mul_ovf = 1'b0;
+    mul_ovf_sig = 1'b0;
     mul_uf = 1'b0;
-    if(a_info.is_nan)
+    if(ab_info.is_nan)
     begin
-        if(~round_en)
+        if(~mul_round_en)
         begin
-            adder_result_o.sign = a_decoded.sign;
-            adder_result_o.mant = {1'b1, a_decoded.mant[MANT_WIDTH_ADDER-2:0]};
-            adder_result_o.exp = a_decoded.exp;
+            adder_result_o.sign = ab_decoded.sign;
+            adder_result_o.mant = {1'b1, ab_decoded.mant[MANT_WIDTH_ADDER-2:0]};
+            adder_result_o.exp = ab_decoded.exp;
         end
         else begin
         adder_round_en_o = 1'b1;
@@ -255,16 +269,16 @@ begin
         adder_result_o.exp = adder_exp_o;
         end
     end
-    if(c_info.is_nan)
+    if(c_int_info.is_nan)
     begin
-        adder_result_o.sign = c_decoded.sign;
-        adder_result_o.mant = {1'b1, c_decoded.mant[MANT_WIDTH_ADDER-2:0]};
-        adder_result_o.exp = c_decoded.exp;
+        adder_result_o.sign = c_int_decoded.sign;
+        adder_result_o.mant = {1'b1, c_int_decoded.mant[MANT_WIDTH_ADDER-2:0]};
+        adder_result_o.exp = c_int_decoded.exp;
     end
-    else if(a_info.is_inf)
+    else if(ab_info.is_inf)
     begin
-        if(~round_en)
-            adder_result_o = ((a_decoded.sign ^ (sub_i ^ c_decoded.sign)) & a_info.is_inf & c_info.is_inf)? R_IND : a_decoded;
+        if(~mul_round_en)
+            adder_result_o = ((ab_decoded.sign ^ (sub_i ^ c_int_decoded.sign)) & ab_info.is_inf & c_int_info.is_inf)? R_IND_ADDER : ab_decoded;
         else begin
             adder_round_en_o = 1'b1;
             adder_result_o.sign = adder_sign_o;
@@ -272,34 +286,34 @@ begin
             adder_result_o.exp = adder_exp_o;
         end
     end
-    else if(inf_cond & ~c_info.is_inf)
+    else if(inf_cond & ~c_int_info.is_inf)
     begin
-        mul_ovf = 1'b1;
-        adder_result_o = {a_decoded.sign, INF};
+        mul_ovf_sig = 1'b1;
+        adder_result_o = {ab_decoded.sign, INF_ADDER};
     end
-    else if(a_info.is_normal || a_info.is_subnormal)
-        if(c_info.is_inf)
+    else if(ab_info.is_normal || ab_info.is_subnormal)
+        if(c_int_info.is_inf)
         begin
-            adder_result_o.sign = sub_i ^ c_decoded.sign;
-            adder_result_o.mant = c_decoded.mant;
-            adder_result_o.exp = c_decoded.exp;
+            adder_result_o.sign = sub_i ^ c_int_decoded.sign;
+            adder_result_o.mant = c_int_decoded.mant;
+            adder_result_o.exp = c_int_decoded.exp;
         end
-        else if(c_info.is_zero)
+        else if(c_int_info.is_zero)
         begin
             adder_round_en_o = 1'b1;
             round_only = 1'b1;
             mul_uf = 1'b1;
-            adder_result_o = a_decoded;
+            adder_result_o = ab_decoded;
         end
         else
         begin
-            if(a_decoded.exp == c_decoded.exp && a_decoded.mant == c_decoded.mant && (a_decoded.sign != (sub_i ^ c_decoded.sign)))
+            if(ab_decoded.exp == c_int_decoded.exp && ab_decoded.mant == c_int_decoded.mant && (ab_decoded.sign != (sub_i ^ c_int_decoded.sign)))
             begin
                 adder_result_o.sign = (rnd_i == RDN);
                 adder_result_o.mant = 0;
                 adder_result_o.exp = 0;
             end
-            else if(a_info.is_subnormal && c_info.is_subnormal)//both subnormal
+            else if(ab_info.is_subnormal && c_int_info.is_subnormal)//both subnormal
             begin
                 adder_round_en_o = 1'b1;
                 round_only = 1'b1;
@@ -316,12 +330,12 @@ begin
                 adder_result_o.exp = adder_exp_o;
             end
         end
-    else if(a_info.is_zero)
+    else if(ab_info.is_zero)
     begin
-        adder_result_o.sign = sub_i ^ c_decoded.sign;
-        adder_result_o.mant = c_decoded.mant;
-        adder_result_o.exp = c_decoded.exp;
-        if(c_info.is_zero && ((sub_i ^ c_info.is_minus) ^ a_info.is_minus))
+        adder_result_o.sign = sub_i ^ c_int_decoded.sign;
+        adder_result_o.mant = c_int_decoded.mant;
+        adder_result_o.exp = c_int_decoded.exp;
+        if(c_int_info.is_zero && ((sub_i ^ c_int_info.is_minus) ^ ab_info.is_minus))
             adder_result_o.sign = (rnd_i == RDN);
     end
 end
@@ -329,28 +343,28 @@ end
 logic denormalA;
 logic denormalB;
 
-assign denormalA = (a_info.is_subnormal ^ c_info.is_subnormal) & a_info.is_subnormal;
-assign denormalB = (a_info.is_subnormal ^ c_info.is_subnormal) & c_info.is_subnormal;
+assign denormalA = (ab_info.is_subnormal ^ c_int_info.is_subnormal) & ab_info.is_subnormal;
+assign denormalB = (ab_info.is_subnormal ^ c_int_info.is_subnormal) & c_int_info.is_subnormal;
 
-assign exp_eq = (a_decoded.exp == c_decoded.exp);
-assign exp_lt = (a_decoded.exp < c_decoded.exp);
+assign exp_eq = (ab_decoded.exp == c_int_decoded.exp);
+assign exp_lt = (ab_decoded.exp < c_int_decoded.exp);
 
-assign mant_eq = (a_decoded.mant == c_decoded.mant);
-assign mant_lt = (a_decoded.mant < c_decoded.mant);
+assign mant_eq = (ab_decoded.mant == c_int_decoded.mant);
+assign mant_lt = (ab_decoded.mant < c_int_decoded.mant);
 
 assign lt = exp_lt | (exp_eq & mant_lt);
 
-assign adder_exp_diff = lt? (c_decoded.exp - a_decoded.exp) 
-                    : (a_decoded.exp - c_decoded.exp);
+assign adder_exp_diff = lt? (c_int_decoded.exp - ab_decoded.exp) 
+                    : (ab_decoded.exp - c_int_decoded.exp);
 
-assign adder_shifted_mant = lt? ({{a_info.is_normal | a_info.is_nan | a_info.is_inf, a_decoded.mant},{GUARD_BITS{1'b0}}} >> (denormalA ? adder_exp_diff - 1 : adder_exp_diff)) 
-                        : ({{c_info.is_normal, c_decoded.mant},{GUARD_BITS{1'b0}}} >> (denormalB ? adder_exp_diff - 1 : adder_exp_diff));
-assign adder_bigger_mant = lt? {c_info.is_normal, c_decoded.mant} : {a_info.is_normal | a_info.is_nan | a_info.is_inf, a_decoded.mant};
+assign adder_shifted_mant = lt? ({{ab_info.is_normal | ab_info.is_nan | ab_info.is_inf, ab_decoded.mant},{GUARD_BITS{1'b0}}} >> (denormalA ? adder_exp_diff - 1 : adder_exp_diff)) 
+                        : ({{c_int_info.is_normal, c_int_decoded.mant},{GUARD_BITS{1'b0}}} >> (denormalB ? adder_exp_diff - 1 : adder_exp_diff));
+assign adder_bigger_mant = lt? {c_int_info.is_normal, c_int_decoded.mant} : {ab_info.is_normal | ab_info.is_nan | ab_info.is_inf, ab_decoded.mant};
 
-assign adder_urpr_s = lt? sub_i ^ c_decoded.sign : a_decoded.sign;
-assign adder_urpr_mant = (a_decoded.sign ^ (sub_i ^ c_decoded.sign))? ({1'b0, adder_bigger_mant,{GUARD_BITS{1'b0}},1'b0} - {1'b0,adder_shifted_mant,adder_stickybit}) 
+assign adder_urpr_s = lt? sub_i ^ c_int_decoded.sign : ab_decoded.sign;
+assign adder_urpr_mant = (ab_decoded.sign ^ (sub_i ^ c_int_decoded.sign))? ({1'b0, adder_bigger_mant,{GUARD_BITS{1'b0}},1'b0} - {1'b0,adder_shifted_mant,adder_stickybit}) 
                                                             : ({1'b0, adder_bigger_mant,{GUARD_BITS{1'b0}},1'b0} + {1'b0,adder_shifted_mant,adder_stickybit});
-assign adder_urpr_exp = lt? c_decoded.exp : a_decoded.exp;
+assign adder_urpr_exp = lt? c_int_decoded.exp : ab_decoded.exp;
 
 //normalize
 //added cout and sticky bit
@@ -376,7 +390,7 @@ assign adder_sign_o = adder_urpr_s;
 assign adder_mant_o = adder_shifted_mant_norm[MANT_WIDTH_ADDER + (GUARD_BITS - 1)-:MANT_WIDTH_ADDER];
 assign {adder_exp_cout_o, adder_exp_o} = adder_urpr_mant[MANT_WIDTH_ADDER + GUARD_BITS + 2]? adder_urpr_exp + 1'b1 : adder_urpr_exp - adder_shamt;
 //Sticky Logic
-assign adder_sigB = lt? {a_info.is_normal, a_decoded.mant} : {c_info.is_normal, c_decoded.mant};
+assign adder_sigB = lt? {ab_info.is_normal, ab_decoded.mant} : {c_int_info.is_normal, c_int_decoded.mant};
 
 genvar i;
 generate
@@ -404,21 +418,23 @@ assign adder_rs_o = {adder_shifted_mant_norm[GUARD_BITS - 1], |adder_shifted_man
 
 
 logic [MANT_WIDTH-1:0] mant_o;
-assign mant_o = add_result.u_result.mant[2*MANT_WIDTH + 1 -: MANT_WIDTH];
+assign mant_o = adder_result_o.mant[2*MANT_WIDTH + 1 -: MANT_WIDTH];
 ////////////////////////////////////////////////////////
 //  Output
 ////////////////////////////////////////////////////////
-assign rs_o[1] = add_result.u_result.mant[MANT_WIDTH + 1];
-assign rs_o[0] = (|add_result.u_result.mant[MANT_WIDTH:0]) | (|add_result.rs) | mult_sticky_bit;
+assign rs_o[1] = adder_result_o.mant[MANT_WIDTH + 1];
+assign rs_o[0] = (|adder_result_o.mant[MANT_WIDTH:0]) | (|adder_rs_o) | mult_sticky_bit;
 assign invalid_o = a_info.is_signalling | b_info.is_signalling | c_info.is_signalling | 
                     ((a_info.is_inf & b_info.is_zero) | (a_info.is_zero & b_info.is_inf)) |
                     (!a_info.is_nan && !b_info.is_nan && c_info.is_inf & ((mul_result.sign ^ (sub_i ^ c_decoded.sign)) & (a_info.is_inf | b_info.is_inf)));
 
 always_comb
     case (rnd_i)
-        RNE, RMM :  mul_uround_out = ~add_result.u_result.mant[MANT_WIDTH];
-        default:    mul_uround_out = ~(|add_result.rs) & (rs_o == 2'b01 | rs_o == 2'b10);
+        RNE, RMM :  mul_uround_out = ~adder_result_o.mant[MANT_WIDTH];
+        default:    mul_uround_out = ~(|adder_rs_o) & (rs_o == 2'b01 | rs_o == 2'b10);
     endcase
+
+
 ////////////////////////////////////////////////////////
 // Pre-check 
 ////////////////////////////////////////////////////////
@@ -454,10 +470,10 @@ begin
         result_o = ((mul_result.sign ^ (sub_i ^ c_decoded.sign)) & (a_info.is_inf | b_info.is_inf))? R_IND : c_decoded;
     else
     begin
-        round_en_o       = add_result.round_en;
-        result_o.sign    = add_result.u_result.sign;
+        round_en_o       = adder_round_en_o;
+        result_o.sign    = adder_result_o.sign;
         result_o.mant    = mant_o;
-        result_o.exp     = add_result.u_result.exp;
+        result_o.exp     = adder_result_o.exp;
         mul_ovf          = mul_ovf_sig & ~invalid_o;
     end
 end
@@ -466,7 +482,7 @@ assign urnd_result_o.u_result   =  result_o;
 assign urnd_result_o.rs         =  rs_o;
 assign urnd_result_o.round_en   =  round_en_o;
 assign urnd_result_o.invalid    =  invalid_o;
-assign urnd_result_o.exp_cout   =  add_result.exp_cout;
+assign urnd_result_o.exp_cout   =  adder_exp_cout_o;
 
 assign done_o = start_i;
 endmodule
