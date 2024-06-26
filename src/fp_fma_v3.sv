@@ -157,7 +157,7 @@ logic new_stickybit;
 assign sigB = {1'b1, mul_norm_mant[2*MANT_WIDTH + 1:0]};
 generate
     for(genvar i = 0; i <= (2*MANT_WIDTH+2); i= i+1)
-	begin : combine_sig
+	begin : combine_sig_mul
         assign compressed_mant[i] = |sigB[i:0];
 	end
 endgenerate
