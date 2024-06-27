@@ -1,13 +1,4 @@
 ../src/fp_pkg.sv
-../src/fp_add.sv
-../src/fp_mul.sv
 ../src/fp_rnd.sv
-../src/fp_cmp.sv
-../src/fp_i2f.sv
-../src/fp_f2i.sv
-../src/fp_f2d.sv
-../src/fp_d2f.sv
 ../src/fp_fma_v3.sv
-../src/int_div.sv
-../src/fp_div.sv
 ../src/lzc.sv

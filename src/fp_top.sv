@@ -107,13 +107,13 @@ endgenerate
 /////////////////////////////////////////////////////////////////
 // Func blocks
 /////////////////////////////////////////////////////////////////
-Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t add_urnd_result;
-Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t mul_urnd_result;
-Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t d2f_urnd_result;
-Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t i2f_urnd_result;
-Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t div_urnd_result;
-Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t madd_urnd_result;
-Structs #(.FP_FORMAT(FP_FORMAT))::round_res_t f2d_rnd_result;
+uround_res_t add_urnd_result;
+uround_res_t mul_urnd_result;
+uround_res_t d2f_urnd_result;
+uround_res_t i2f_urnd_result;
+uround_res_t div_urnd_result;
+uround_res_t madd_urnd_result;
+round_res_t f2d_rnd_result;
 
 ////////////////////
 // Adder
@@ -241,7 +241,7 @@ endgenerate
 /////////////////////////////////////////////////////////////////
 // First Stage Arbiter
 /////////////////////////////////////////////////////////////////
-Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_reg;
+uround_res_t urnd_result_reg;
 logic done_reg;
 
 assign done_reg = (((add_done | cmp_done) | (f2f_done | f2i_done)) | ((i2f_done | mul_done) | (sgnj_done | class_done))) | min_max_done;
@@ -280,7 +280,7 @@ end
 /////////////////////////////////////////////////////////////////
 // Regwall
 /////////////////////////////////////////////////////////////////
-Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_reg_rnd;
+uround_res_t urnd_result_reg_rnd;
 logic done_reg_rnd;
 logic need_rnd_reg_rnd;
 roundmode_e rnd_reg;
@@ -302,7 +302,7 @@ end
 /////////////////////////////////////////////////////////////////
 // Round
 /////////////////////////////////////////////////////////////////
-Structs #(.FP_FORMAT(FP_FORMAT))::round_res_t rnd_result
+round_res_t rnd_result
 
 fp_rnd #(.FP_FORMAT(FP_FORMAT)) fp_rnd_inst
 (

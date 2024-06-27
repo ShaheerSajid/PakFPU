@@ -13,30 +13,44 @@ module fp_fma
     localparam R_IND = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}}
 )
 (
-    input [FP_WIDTH-1:0] a_i,
-    input [FP_WIDTH-1:0] b_i,
-    input [FP_WIDTH-1:0] c_i,
-    input start_i,
-    input sub_i,
-    input roundmode_e rnd_i,
-    output done_o,
-    output logic round_only,
-    output logic mul_ovf,
-    output logic mul_uf,
-    output logic mul_uround_out,
-    output Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_o
-
+    a_i,
+    b_i,
+    c_i,
+    start_i,
+    sub_i,
+    rnd_i,
+    done_o,
+    round_only,
+    mul_ovf,
+    mul_uf,
+    mul_uround_out,
+    urnd_result_o
 );
+`include "fp_class.sv"
 
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t result_o;
+input [FP_WIDTH-1:0] a_i;
+input [FP_WIDTH-1:0] b_i;
+input [FP_WIDTH-1:0] c_i;
+input start_i;
+input sub_i;
+input roundmode_e rnd_i;
+output done_o;
+output logic round_only;
+output logic mul_ovf;
+output logic mul_uf;
+output logic mul_uround_out;
+output uround_res_t urnd_result_o;
+
+
+fp_encoding_t result_o;
 logic [1:0] rs_o;
 logic round_en_o;
 logic invalid_o;
 logic [1:0] exp_cout_o;
 
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t a_decoded;
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t b_decoded;
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t c_decoded;
+fp_encoding_t a_decoded;
+fp_encoding_t b_decoded;
+fp_encoding_t c_decoded;
 
 assign a_decoded = a_i;
 assign b_decoded = b_i;
@@ -46,23 +60,21 @@ fp_info_t a_info;
 fp_info_t b_info;
 fp_info_t c_info;
 
-assign a_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(a_i);
-assign b_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(b_i);
-assign c_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(c_i);
+assign a_info = fp_info(a_i);
+assign b_info = fp_info(b_i);
+assign c_info = fp_info(c_i);
 
 
 ////////////////////////////////////////////////////////
 // Multiply 
 ////////////////////////////////////////////////////////
-Structs #(.FP_FORMAT(FP48))::uround_res_t add_result;
-localparam int unsigned FP_WIDTH_ADDER = fp_width(FP48);
-localparam int unsigned EXP_WIDTH_ADDER = exp_bits(FP48);
-localparam int unsigned MANT_WIDTH_ADDER = man_bits(FP48);
-localparam INF_ADDER = {{EXP_WIDTH_ADDER{1'b1}}, {MANT_WIDTH_ADDER{1'b0}}};
-localparam R_IND_ADDER = {1'b1, {EXP_WIDTH_ADDER{1'b1}}, 1'b1, {MANT_WIDTH_ADDER-1{1'b0}}};
+localparam int unsigned MANT_WIDTH_ADDER = 2*MANT_WIDTH + 2;
+localparam int unsigned FP_WIDTH_ADDER = 1 + EXP_WIDTH + MANT_WIDTH_ADDER;
+localparam INF_ADDER = {{EXP_WIDTH{1'b1}}, {MANT_WIDTH_ADDER{1'b0}}};
+localparam R_IND_ADDER = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH_ADDER-1{1'b0}}};
 
 
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t mul_result;
+fp_encoding_t mul_result;
 logic mul_round_en;
 logic [1:0] mul_exp_cout;
 
@@ -187,23 +199,24 @@ end
 ////////////////////////////////////////////////////////
 // Add/Sub 
 ////////////////////////////////////////////////////////
+typedef struct packed {
+    logic sign;
+    logic [EXP_WIDTH-1:0] exp;
+    logic [MANT_WIDTH_ADDER-1:0] mant;
+} fp_encoding_48_t;
+
+typedef struct packed {
+    fp_encoding_48_t u_result;
+    logic [1:0] rs;
+    logic round_en;
+    logic invalid;
+    logic [1:0] exp_cout;
+} uround_res_48_t;
+
 logic mul_ovf_sig;
-logic [FP_WIDTH_ADDER-1:0] c_int;
-assign c_int = {c_i, {MANT_WIDTH+2{1'b0}}};
+uround_res_48_t add_result;
 
-Structs #(.FP_FORMAT(FP48))::fp_encoding_t ab_decoded;
-Structs #(.FP_FORMAT(FP48))::fp_encoding_t c_int_decoded;
-
-assign ab_decoded       = joined_mul_result;
-assign c_int_decoded    = c_int;
-
-fp_info_t ab_info;
-fp_info_t c_int_info;
-
-assign ab_info = Functions #(.FP_FORMAT(FP48))::fp_info(joined_mul_result);
-assign c_int_info = Functions #(.FP_FORMAT(FP48))::fp_info(c_int);
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*fp_add  #(.FP_FORMAT(FP48)) fp_add_inst
+fp_fma_add_unit  #(.FP_FORMAT(FP48)) fp_add_inst
 (
     .a_i(joined_mul_result),
     .b_i({c_i, {MANT_WIDTH+2{1'b0}}}),
@@ -216,222 +229,22 @@ assign c_int_info = Functions #(.FP_FORMAT(FP48))::fp_info(c_int);
     .mul_uf(mul_uf),
     .urnd_result_o(add_result)
 );
-*/
-Structs #(.FP_FORMAT(FP48))::fp_encoding_t adder_result_o;
-logic [1:0] adder_rs_o;
-logic adder_round_en_o;
-logic [1:0] adder_exp_cout_o;
-
-logic exp_eq, exp_lt;
-logic mant_eq, mant_lt;
-logic lt;
-
-logic [EXP_WIDTH_ADDER-1:0]adder_exp_diff;
-logic [MANT_WIDTH_ADDER + GUARD_BITS:0]adder_shifted_mant;
-logic [MANT_WIDTH_ADDER:0]adder_bigger_mant;
-
-logic adder_urpr_s;
-logic [MANT_WIDTH_ADDER + GUARD_BITS + 2:0] adder_urpr_mant;
-logic [EXP_WIDTH_ADDER-1:0] adder_urpr_exp;
-
-logic adder_sign_o;
-logic [EXP_WIDTH_ADDER-1:0] adder_exp_o;
-logic [MANT_WIDTH_ADDER-1:0] adder_mant_o;
-
-logic [EXP_WIDTH_ADDER:0] adder_stickyindex;
-logic [MANT_WIDTH_ADDER:0] adder_sigB;
-logic [MANT_WIDTH_ADDER:0] adder_compressed_mant;
-logic adder_stickybit;
-
-logic [EXP_WIDTH_ADDER+1:0] comb_exp;
-logic inf_cond;
-assign comb_exp = {mul_exp_cout, ab_decoded.exp};
-
-always_comb
-begin
-    adder_round_en_o = 1'b0;
-	adder_result_o = 0;
-    round_only = 1'b0;
-    mul_ovf_sig = 1'b0;
-    mul_uf = 1'b0;
-    if(ab_info.is_nan)
-    begin
-        if(~mul_round_en)
-        begin
-            adder_result_o.sign = ab_decoded.sign;
-            adder_result_o.mant = {1'b1, ab_decoded.mant[MANT_WIDTH_ADDER-2:0]};
-            adder_result_o.exp = ab_decoded.exp;
-        end
-        else begin
-        adder_round_en_o = 1'b1;
-        adder_result_o.sign = adder_sign_o;
-        adder_result_o.mant = adder_mant_o;
-        adder_result_o.exp = adder_exp_o;
-        end
-    end
-    if(c_int_info.is_nan)
-    begin
-        adder_result_o.sign = c_int_decoded.sign;
-        adder_result_o.mant = {1'b1, c_int_decoded.mant[MANT_WIDTH_ADDER-2:0]};
-        adder_result_o.exp = c_int_decoded.exp;
-    end
-    else if(ab_info.is_inf)
-    begin
-        if(~mul_round_en)
-            adder_result_o = ((ab_decoded.sign ^ (sub_i ^ c_int_decoded.sign)) & ab_info.is_inf & c_int_info.is_inf)? R_IND_ADDER : ab_decoded;
-        else begin
-            adder_round_en_o = 1'b1;
-            adder_result_o.sign = adder_sign_o;
-            adder_result_o.mant = adder_mant_o;
-            adder_result_o.exp = adder_exp_o;
-        end
-    end
-    else if(inf_cond & ~c_int_info.is_inf)
-    begin
-        mul_ovf_sig = 1'b1;
-        adder_result_o = {ab_decoded.sign, INF_ADDER};
-    end
-    else if(ab_info.is_normal || ab_info.is_subnormal)
-        if(c_int_info.is_inf)
-        begin
-            adder_result_o.sign = sub_i ^ c_int_decoded.sign;
-            adder_result_o.mant = c_int_decoded.mant;
-            adder_result_o.exp = c_int_decoded.exp;
-        end
-        else if(c_int_info.is_zero)
-        begin
-            adder_round_en_o = 1'b1;
-            round_only = 1'b1;
-            mul_uf = 1'b1;
-            adder_result_o = ab_decoded;
-        end
-        else
-        begin
-            if(ab_decoded.exp == c_int_decoded.exp && ab_decoded.mant == c_int_decoded.mant && (ab_decoded.sign != (sub_i ^ c_int_decoded.sign)))
-            begin
-                adder_result_o.sign = (rnd_i == RDN);
-                adder_result_o.mant = 0;
-                adder_result_o.exp = 0;
-            end
-            else if(ab_info.is_subnormal && c_int_info.is_subnormal)//both subnormal
-            begin
-                adder_round_en_o = 1'b1;
-                round_only = 1'b1;
-                mul_uf = 1'b1;
-                adder_result_o.sign = adder_sign_o;
-                adder_result_o.mant = adder_urpr_mant[MANT_WIDTH_ADDER + GUARD_BITS-:MANT_WIDTH_ADDER];
-                adder_result_o.exp = adder_urpr_mant[MANT_WIDTH_ADDER + GUARD_BITS + 1] ? 'd1 : 'd0;
-            end
-            else//both normal or mixed
-            begin
-                adder_round_en_o = 1'b1;
-                adder_result_o.sign = adder_sign_o;
-                adder_result_o.mant = adder_mant_o;
-                adder_result_o.exp = adder_exp_o;
-            end
-        end
-    else if(ab_info.is_zero)
-    begin
-        adder_result_o.sign = sub_i ^ c_int_decoded.sign;
-        adder_result_o.mant = c_int_decoded.mant;
-        adder_result_o.exp = c_int_decoded.exp;
-        if(c_int_info.is_zero && ((sub_i ^ c_int_info.is_minus) ^ ab_info.is_minus))
-            adder_result_o.sign = (rnd_i == RDN);
-    end
-end
-
-logic denormalA;
-logic denormalB;
-
-assign denormalA = (ab_info.is_subnormal ^ c_int_info.is_subnormal) & ab_info.is_subnormal;
-assign denormalB = (ab_info.is_subnormal ^ c_int_info.is_subnormal) & c_int_info.is_subnormal;
-
-assign exp_eq = (ab_decoded.exp == c_int_decoded.exp);
-assign exp_lt = (ab_decoded.exp < c_int_decoded.exp);
-
-assign mant_eq = (ab_decoded.mant == c_int_decoded.mant);
-assign mant_lt = (ab_decoded.mant < c_int_decoded.mant);
-
-assign lt = exp_lt | (exp_eq & mant_lt);
-
-assign adder_exp_diff = lt? (c_int_decoded.exp - ab_decoded.exp) 
-                    : (ab_decoded.exp - c_int_decoded.exp);
-
-assign adder_shifted_mant = lt? ({{ab_info.is_normal | ab_info.is_nan | ab_info.is_inf, ab_decoded.mant},{GUARD_BITS{1'b0}}} >> (denormalA ? adder_exp_diff - 1 : adder_exp_diff)) 
-                        : ({{c_int_info.is_normal, c_int_decoded.mant},{GUARD_BITS{1'b0}}} >> (denormalB ? adder_exp_diff - 1 : adder_exp_diff));
-assign adder_bigger_mant = lt? {c_int_info.is_normal, c_int_decoded.mant} : {ab_info.is_normal | ab_info.is_nan | ab_info.is_inf, ab_decoded.mant};
-
-assign adder_urpr_s = lt? sub_i ^ c_int_decoded.sign : ab_decoded.sign;
-assign adder_urpr_mant = (ab_decoded.sign ^ (sub_i ^ c_int_decoded.sign))? ({1'b0, adder_bigger_mant,{GUARD_BITS{1'b0}},1'b0} - {1'b0,adder_shifted_mant,adder_stickybit}) 
-                                                            : ({1'b0, adder_bigger_mant,{GUARD_BITS{1'b0}},1'b0} + {1'b0,adder_shifted_mant,adder_stickybit});
-assign adder_urpr_exp = lt? c_int_decoded.exp : ab_decoded.exp;
-
-//normalize
-//added cout and sticky bit
-logic [MANT_WIDTH_ADDER + GUARD_BITS + 1:0] adder_shifted_mant_norm;
-//calculate shift
-
-logic [$clog2(FP_WIDTH_ADDER)-1:0] adder_shamt;
-
-lzc #(.WIDTH(MANT_WIDTH_ADDER+GUARD_BITS)) adder_lzc_inst
-(
-    .a_i(adder_urpr_mant[MANT_WIDTH_ADDER + GUARD_BITS + 1 : GUARD_BITS - 1]),
-    .cnt_o(adder_shamt),
-    .zero_o()
-);
-
-assign inf_cond  = ($signed(comb_exp) >  $signed(2**EXP_WIDTH_ADDER-1) );
-
-logic bitout;
-assign {adder_shifted_mant_norm, bitout} = adder_urpr_mant[MANT_WIDTH_ADDER + GUARD_BITS + 2]?  {adder_urpr_mant[MANT_WIDTH_ADDER + GUARD_BITS + 2:1],1'b0} >> 1'b1 
-                                    : {adder_urpr_mant[MANT_WIDTH_ADDER + GUARD_BITS + 2:1],1'b0} << adder_shamt;
-
-assign adder_sign_o = adder_urpr_s;
-assign adder_mant_o = adder_shifted_mant_norm[MANT_WIDTH_ADDER + (GUARD_BITS - 1)-:MANT_WIDTH_ADDER];
-assign {adder_exp_cout_o, adder_exp_o} = adder_urpr_mant[MANT_WIDTH_ADDER + GUARD_BITS + 2]? adder_urpr_exp + 1'b1 : adder_urpr_exp - adder_shamt;
-//Sticky Logic
-assign adder_sigB = lt? {ab_info.is_normal, ab_decoded.mant} : {c_int_info.is_normal, c_int_decoded.mant};
-
-genvar i;
-generate
-    for(i = 0; i <= MANT_WIDTH_ADDER; i= i+1)
-	begin : combine_sig
-        assign adder_compressed_mant[i] = |adder_sigB[i:0];
-	end
-endgenerate
-assign adder_stickyindex = adder_exp_diff - (GUARD_BITS + 1);
-
-always_comb
-    if($signed(adder_stickyindex) < $signed(0))
-        adder_stickybit = 1'b0;
-    else if($signed(adder_stickyindex) > $signed(MANT_WIDTH_ADDER))
-        adder_stickybit = adder_compressed_mant[MANT_WIDTH_ADDER];
-    else
-        adder_stickybit = adder_compressed_mant[adder_stickyindex];
-    
-
-assign adder_rs_o = {adder_shifted_mant_norm[GUARD_BITS - 1], |adder_shifted_mant_norm[GUARD_BITS - 2:0] | adder_stickybit | bitout};
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-
 
 logic [MANT_WIDTH-1:0] mant_o;
-assign mant_o = adder_result_o.mant[2*MANT_WIDTH + 1 -: MANT_WIDTH];
+assign mant_o = add_result.u_result.mant[2*MANT_WIDTH + 1 -: MANT_WIDTH];
 ////////////////////////////////////////////////////////
 //  Output
 ////////////////////////////////////////////////////////
-assign rs_o[1] = adder_result_o.mant[MANT_WIDTH + 1];
-assign rs_o[0] = (|adder_result_o.mant[MANT_WIDTH:0]) | (|adder_rs_o) | mult_sticky_bit;
+assign rs_o[1] = add_result.u_result.mant[MANT_WIDTH + 1];
+assign rs_o[0] = (|add_result.u_result.mant[MANT_WIDTH:0]) | (|add_result.rs) | mult_sticky_bit;
 assign invalid_o = a_info.is_signalling | b_info.is_signalling | c_info.is_signalling | 
                     ((a_info.is_inf & b_info.is_zero) | (a_info.is_zero & b_info.is_inf)) |
                     (!a_info.is_nan && !b_info.is_nan && c_info.is_inf & ((mul_result.sign ^ (sub_i ^ c_decoded.sign)) & (a_info.is_inf | b_info.is_inf)));
 
 always_comb
     case (rnd_i)
-        RNE, RMM :  mul_uround_out = ~adder_result_o.mant[MANT_WIDTH];
-        default:    mul_uround_out = ~(|adder_rs_o) & (rs_o == 2'b01 | rs_o == 2'b10);
+        RNE, RMM :  mul_uround_out = ~add_result.u_result.mant[MANT_WIDTH];
+        default:    mul_uround_out = ~(|add_result.rs) & (rs_o == 2'b01 | rs_o == 2'b10);
     endcase
 
 
@@ -470,10 +283,10 @@ begin
         result_o = ((mul_result.sign ^ (sub_i ^ c_decoded.sign)) & (a_info.is_inf | b_info.is_inf))? R_IND : c_decoded;
     else
     begin
-        round_en_o       = adder_round_en_o;
-        result_o.sign    = adder_result_o.sign;
+        round_en_o       = add_result.round_en;
+        result_o.sign    = add_result.u_result.sign;
         result_o.mant    = mant_o;
-        result_o.exp     = adder_result_o.exp;
+        result_o.exp     = add_result.u_result.exp;
         mul_ovf          = mul_ovf_sig & ~invalid_o;
     end
 end
@@ -482,7 +295,273 @@ assign urnd_result_o.u_result   =  result_o;
 assign urnd_result_o.rs         =  rs_o;
 assign urnd_result_o.round_en   =  round_en_o;
 assign urnd_result_o.invalid    =  invalid_o;
-assign urnd_result_o.exp_cout   =  adder_exp_cout_o;
+assign urnd_result_o.exp_cout   =  add_result.exp_cout;
 
 assign done_o = start_i;
+endmodule
+
+
+
+
+module fp_fma_add_unit
+#(
+    parameter fp_format_e FP_FORMAT = FP32,
+
+    localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT),
+    localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT),
+    localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT),
+
+    localparam int unsigned BIAS = (2**(EXP_WIDTH-1)-1),
+    localparam INF = {{EXP_WIDTH{1'b1}}, {MANT_WIDTH{1'b0}}},
+    localparam R_IND = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}}
+)
+(
+    a_i,
+    b_i,
+    start_i,
+    sub_i,
+    exp_in,
+    round_en,
+    rnd_i,
+    done_o,
+    round_only,
+    mul_ovf,
+    mul_uf,
+    urnd_result_o
+
+);
+`include "fp_class.sv"
+
+input [FP_WIDTH-1:0] a_i;
+input [FP_WIDTH-1:0] b_i;
+input start_i;
+input sub_i;
+input [1:0]exp_in;
+input round_en;
+input roundmode_e rnd_i;
+output done_o;
+output logic round_only;
+output logic mul_ovf;
+output logic mul_uf;
+output uround_res_t urnd_result_o;
+
+fp_encoding_t result_o;
+logic [1:0] rs_o;
+logic round_en_o;
+logic invalid_o;
+logic [1:0] exp_cout_o;
+
+
+logic exp_eq, exp_lt;
+logic mant_eq, mant_lt;
+logic lt;
+
+logic [EXP_WIDTH-1:0]exp_diff;
+logic [MANT_WIDTH + GUARD_BITS:0]shifted_mant;
+logic [MANT_WIDTH:0]bigger_mant;
+
+logic urpr_s;
+logic [MANT_WIDTH + GUARD_BITS + 2:0] urpr_mant;
+logic [EXP_WIDTH-1:0] urpr_exp;
+
+logic sign_o;
+logic [EXP_WIDTH-1:0] exp_o;
+logic [MANT_WIDTH-1:0] mant_o;
+
+fp_encoding_t a_decoded;
+fp_encoding_t b_decoded;
+
+logic [EXP_WIDTH:0] stickyindex;
+logic [MANT_WIDTH:0] sigB;
+logic [MANT_WIDTH:0] compressed_mant;
+logic stickybit;
+
+assign a_decoded = a_i;
+assign b_decoded = b_i;
+
+fp_info_t a_info;
+fp_info_t b_info;
+
+assign a_info = fp_info(a_i);
+assign b_info = fp_info(b_i);
+
+logic [EXP_WIDTH+1:0] comb_exp;
+logic inf_cond;
+assign comb_exp = {exp_in, a_decoded.exp};
+
+always_comb
+begin
+    round_en_o = 1'b0;
+	result_o = 0;
+    round_only = 1'b0;
+    mul_ovf = 1'b0;
+    mul_uf = 1'b0;
+    if(a_info.is_nan)
+    begin
+        if(~round_en)
+        begin
+            result_o.sign = a_decoded.sign;
+            result_o.mant = {1'b1, a_decoded.mant[MANT_WIDTH-2:0]};
+            result_o.exp = a_decoded.exp;
+        end
+        else begin
+        round_en_o = 1'b1;
+        result_o.sign = sign_o;
+        result_o.mant = mant_o;
+        result_o.exp = exp_o;
+        end
+    end
+    if(b_info.is_nan)
+    begin
+        result_o.sign = b_decoded.sign;
+        result_o.mant = {1'b1, b_decoded.mant[MANT_WIDTH-2:0]};
+        result_o.exp = b_decoded.exp;
+    end
+    else if(a_info.is_inf)
+    begin
+        if(~round_en)
+            result_o = ((a_decoded.sign ^ (sub_i ^ b_decoded.sign)) & a_info.is_inf & b_info.is_inf)? R_IND : a_decoded;
+        else begin
+            round_en_o = 1'b1;
+            result_o.sign = sign_o;
+            result_o.mant = mant_o;
+            result_o.exp = exp_o;
+        end
+    end
+    else if(inf_cond & ~b_info.is_inf)
+    begin
+        mul_ovf = 1'b1;
+        result_o = {a_decoded.sign, INF};
+    end
+    else if(a_info.is_normal || a_info.is_subnormal)
+        if(b_info.is_inf)
+        begin
+            result_o.sign = sub_i ^ b_decoded.sign;
+            result_o.mant = b_decoded.mant;
+            result_o.exp = b_decoded.exp;
+        end
+        else if(b_info.is_zero)
+        begin
+            round_en_o = 1'b1;
+            round_only = 1'b1;
+            mul_uf = 1'b1;
+            result_o = a_decoded;
+        end
+        else
+        begin
+            if(a_decoded.exp == b_decoded.exp && a_decoded.mant == b_decoded.mant && (a_decoded.sign != (sub_i ^ b_decoded.sign)))
+            begin
+                result_o.sign = (rnd_i == RDN);
+                result_o.mant = 0;
+                result_o.exp = 0;
+            end
+            else if(a_info.is_subnormal && b_info.is_subnormal)//both subnormal
+            begin
+                round_en_o = 1'b1;
+                round_only = 1'b1;
+                mul_uf = 1'b1;
+                result_o.sign = sign_o;
+                result_o.mant = urpr_mant[MANT_WIDTH + GUARD_BITS-:MANT_WIDTH];
+                result_o.exp = urpr_mant[MANT_WIDTH + GUARD_BITS + 1] ? 'd1 : 'd0;
+            end
+            else//both normal or mixed
+            begin
+                round_en_o = 1'b1;
+                result_o.sign = sign_o;
+                result_o.mant = mant_o;
+                result_o.exp = exp_o;
+            end
+        end
+    else if(a_info.is_zero)
+    begin
+        result_o.sign = sub_i ^ b_decoded.sign;
+        result_o.mant = b_decoded.mant;
+        result_o.exp = b_decoded.exp;
+        if(b_info.is_zero && ((sub_i ^ b_info.is_minus) ^ a_info.is_minus))
+            result_o.sign = (rnd_i == RDN);
+    end
+end
+
+logic denormalA;
+logic denormalB;
+
+assign denormalA = (a_info.is_subnormal ^ b_info.is_subnormal) & a_info.is_subnormal;
+assign denormalB = (a_info.is_subnormal ^ b_info.is_subnormal) & b_info.is_subnormal;
+
+assign exp_eq = (a_decoded.exp == b_decoded.exp);
+assign exp_lt = (a_decoded.exp < b_decoded.exp);
+
+assign mant_eq = (a_decoded.mant == b_decoded.mant);
+assign mant_lt = (a_decoded.mant < b_decoded.mant);
+
+assign lt = exp_lt | (exp_eq & mant_lt);
+
+assign exp_diff = lt? (b_decoded.exp - a_decoded.exp) 
+                    : (a_decoded.exp - b_decoded.exp);
+
+assign shifted_mant = lt? ({{a_info.is_normal | a_info.is_nan | a_info.is_inf, a_decoded.mant},{GUARD_BITS{1'b0}}} >> (denormalA ? exp_diff - 1 : exp_diff)) 
+                        : ({{b_info.is_normal, b_decoded.mant},{GUARD_BITS{1'b0}}} >> (denormalB ? exp_diff - 1 : exp_diff));
+assign bigger_mant = lt? {b_info.is_normal, b_decoded.mant} : {a_info.is_normal | a_info.is_nan | a_info.is_inf, a_decoded.mant};
+
+assign urpr_s = lt? sub_i ^ b_decoded.sign : a_decoded.sign;
+assign urpr_mant = (a_decoded.sign ^ (sub_i ^ b_decoded.sign))? ({1'b0, bigger_mant,{GUARD_BITS{1'b0}},1'b0} - {1'b0,shifted_mant,stickybit}) 
+                                                            : ({1'b0, bigger_mant,{GUARD_BITS{1'b0}},1'b0} + {1'b0,shifted_mant,stickybit});
+assign urpr_exp = lt? b_decoded.exp : a_decoded.exp;
+
+//normalize
+//added cout and sticky bit
+logic [MANT_WIDTH + GUARD_BITS + 1:0] shifted_mant_norm;
+//calculate shift
+
+logic [$clog2(FP_WIDTH)-1:0] shamt;
+
+lzc #(.WIDTH(MANT_WIDTH+GUARD_BITS)) lzc_inst
+(
+    .a_i(urpr_mant[MANT_WIDTH + GUARD_BITS + 1 : GUARD_BITS - 1]),
+    .cnt_o(shamt),
+    .zero_o()
+);
+
+assign inf_cond  = ($signed(comb_exp) >  $signed(2**EXP_WIDTH-1) );
+
+logic bitout;
+assign {shifted_mant_norm, bitout} = urpr_mant[MANT_WIDTH + GUARD_BITS + 2]?  {urpr_mant[MANT_WIDTH + GUARD_BITS + 2:1],1'b0} >> 1'b1 
+                                    : {urpr_mant[MANT_WIDTH + GUARD_BITS + 2:1],1'b0} << shamt;
+
+assign sign_o = urpr_s;
+assign mant_o = shifted_mant_norm[MANT_WIDTH + (GUARD_BITS - 1)-:MANT_WIDTH];
+assign {exp_cout_o, exp_o} = urpr_mant[MANT_WIDTH + GUARD_BITS + 2]? urpr_exp + 1'b1 : urpr_exp - shamt;
+//Sticky Logic
+assign sigB = lt? {a_info.is_normal, a_decoded.mant} : {b_info.is_normal, b_decoded.mant};
+
+genvar i;
+generate
+    for(i = 0; i <= MANT_WIDTH; i= i+1)
+	begin : combine_sig
+        assign compressed_mant[i] = |sigB[i:0];
+	end
+endgenerate
+assign stickyindex = exp_diff - (GUARD_BITS + 1);
+
+always_comb
+    if($signed(stickyindex) < $signed(0))
+        stickybit = 1'b0;
+    else if($signed(stickyindex) > $signed(MANT_WIDTH))
+        stickybit = compressed_mant[MANT_WIDTH];
+    else
+        stickybit = compressed_mant[stickyindex];
+    
+
+assign rs_o = {shifted_mant_norm[GUARD_BITS - 1], |shifted_mant_norm[GUARD_BITS - 2:0] | stickybit | bitout};
+assign invalid_o = a_info.is_signalling | b_info.is_signalling | ((a_decoded.sign ^ (sub_i ^ b_decoded.sign)) & a_info.is_inf & b_info.is_inf); 
+
+
+assign urnd_result_o.u_result =  result_o;
+assign urnd_result_o.rs =  rs_o;
+assign urnd_result_o.round_en =  round_en_o;
+assign urnd_result_o.invalid =  invalid_o;
+assign urnd_result_o.exp_cout =  exp_cout_o;
+
+assign done_o = start_i;
+
 endmodule

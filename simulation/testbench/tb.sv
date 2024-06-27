@@ -12,13 +12,18 @@ module tb
     output status_t flags_o
 )
 `endif ;
+parameter fp_format_e FP_FORMAT = FP32;
 
+localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT);
+localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT);
+localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
+`include "fp_class.sv"
 
 `ifdef VERILATOR
 logic [1:0] rs;
 logic [63:0] u_result;
-Structs #(.FP_FORMAT(FP32))::uround_res_t urnd_result;
-Structs #(.FP_FORMAT(FP32))::round_res_t rnd_result;
+uround_res_t urnd_result;
+round_res_t rnd_result;
 logic round_en;
 logic [1:0] exp_cout;
 logic invalid;
@@ -31,8 +36,8 @@ logic mul_uround_out;
 logic [1:0] rs;
 logic [31:0] result;
 logic [31:0] u_result;
-Structs #(.FP_FORMAT(FP32))::uround_res_t urnd_result;
-Structs #(.FP_FORMAT(FP32))::round_res_t rnd_result;
+uround_res_t urnd_result;
+round_res_t rnd_result;
 logic round_en;
 integer outfile0; 
 logic [31:0] opA,opB,opC,exp_res;
@@ -90,7 +95,7 @@ end
 `endif
 
 
-fp_fma  #(.FP_FORMAT(FP32))fp_fma_inst
+fp_fma  #(.FP_FORMAT(FP32)) fp_fma_inst
 (
     .a_i(opA),
     .b_i(opB),

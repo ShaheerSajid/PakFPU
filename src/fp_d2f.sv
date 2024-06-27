@@ -2,9 +2,12 @@ import fp_pkg::*;
 
 module d2f
 (
-    input [63:0] a_i,
-    output Structs #(.FP_FORMAT(FP32))::uround_res_t urnd_result_o
+    a_i,
+    urnd_result_o
 );
+`include "fp_class.sv"
+input [63:0] a_i;
+output Structs #(.FP_FORMAT(FP32))::uround_res_t urnd_result_o;
 
 Structs #(.FP_FORMAT(FP32))::fp_encoding_t result_o;
 logic [1:0] rs_o;

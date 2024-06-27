@@ -20,11 +20,11 @@ module fp_div
     input start_i,
     input roundmode_e rnd_i,
     output done_o,
-    output Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_o
+    output uround_res_t urnd_result_o
 
 );
 
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t result_o;
+fp_encoding_t result_o;
 logic [1:0] rs_o;
 logic round_en_o;
 logic invalid_o;
@@ -38,8 +38,8 @@ logic sign_o;
 logic [EXP_WIDTH-1:0] exp_o;
 logic [MANT_WIDTH-1:0] mant_o;
 
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t a_decoded;
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t b_decoded;
+fp_encoding_t a_decoded;
+fp_encoding_t b_decoded;
 
 assign a_decoded = a_i;
 assign b_decoded = b_i;
@@ -47,8 +47,8 @@ assign b_decoded = b_i;
 fp_info_t a_info;
 fp_info_t b_info;
 
-assign a_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(a_i);
-assign b_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(b_i);
+assign a_info = fp_info(a_i);
+assign b_info = fp_info(b_i);
 
 
 //precheck

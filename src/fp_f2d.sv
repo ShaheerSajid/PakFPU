@@ -2,9 +2,12 @@ import fp_pkg::*;
 
 module f2d
 (
-    input [31:0] a_i,
-    output Structs #(.FP_FORMAT(FP64))::round_res_t rnd_result_o
+    a_i,
+    rnd_result_o
 );
+`include "fp_class.sv"
+input [31:0] a_i;
+output Structs #(.FP_FORMAT(FP64))::round_res_t rnd_result_o;
 
 Structs #(.FP_FORMAT(FP64))::fp_encoding_t result_o;
 status_t flags_o;

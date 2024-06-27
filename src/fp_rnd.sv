@@ -9,20 +9,27 @@ module fp_rnd
     localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT)
 )
 (
-    input Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_i,
-    input roundmode_e rnd_i,
-    input round_only,
-    input mul_ovf,
-    output Structs #(.FP_FORMAT(FP_FORMAT))::round_res_t rnd_result_o
+    urnd_result_i,
+    rnd_i,
+    round_only,
+    mul_ovf,
+    rnd_result_o
 );
+`include "fp_class.sv"
 
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t a_i;
+input uround_res_t urnd_result_i;
+input roundmode_e rnd_i;
+input round_only;
+input mul_ovf;
+output round_res_t rnd_result_o;
+
+fp_encoding_t a_i;
 logic [1:0] rs_i;
 logic round_en_i;
 logic invalid_i;
 logic [1:0] exp_cout_i;
 
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t out_o;
+fp_encoding_t out_o;
 status_t flags_o;
 
 

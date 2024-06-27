@@ -24,19 +24,19 @@ module fp_fma
     output logic mul_ovf,
     output logic mul_uf,
     output logic mul_uround_out,
-    output Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_o
+    output uround_res_t urnd_result_o
 
 );
 
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t result_o;
+fp_encoding_t result_o;
 logic [1:0] rs_o;
 logic round_en_o;
 logic invalid_o;
 logic [1:0] exp_cout_o;
 
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t a_decoded;
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t b_decoded;
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t c_decoded;
+fp_encoding_t a_decoded;
+fp_encoding_t b_decoded;
+fp_encoding_t c_decoded;
 
 assign a_decoded = a_i;
 assign b_decoded = b_i;
@@ -46,15 +46,15 @@ fp_info_t a_info;
 fp_info_t b_info;
 fp_info_t c_info;
 
-assign a_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(a_i);
-assign b_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(b_i);
-assign c_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(c_i);
+assign a_info = fp_info(a_i);
+assign b_info = fp_info(b_i);
+assign c_info = fp_info(c_i);
 
 
 ////////////////////////////////////////////////////////
 // Multiply 
 ////////////////////////////////////////////////////////
-Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t mul_result;
+uround_res_t mul_result;
 Structs #(.FP_FORMAT(FP48))::uround_res_t add_result;
 localparam int unsigned FP_WIDTH_ADDER = fp_width(FP48);
 
