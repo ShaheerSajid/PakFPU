@@ -206,7 +206,7 @@ fp_fma_add_unit  #(.FP_FORMAT(FP48)) fp_add_inst
 (
     .a_i(joined_mul_result),
     .b_i({c_i, {MANT_WIDTH+2{1'b0}}}),
-    .sub_i(1'b0),
+    .sub_i(sub_i),
     .exp_in(mul_exp_cout),
     .round_en(mul_round_en),
     .rnd_i(rnd_i),
@@ -266,7 +266,7 @@ begin
     else if(c_info.is_inf)
         // This should be calculated as finite inputs can result in infinite output due to ovf
         // Maybe you already checked that in adder
-        result_o = ((mul_result.sign ^ (sub_i ^ c_decoded.sign)) & (a_info.is_inf | b_info.is_inf))? R_IND : c_decoded;
+        result_o = ((mul_result.sign ^ (sub_i ^ c_decoded.sign)) & (a_info.is_inf | b_info.is_inf))? R_IND : {sub_i ^ c_decoded.sign,c_decoded.exp,c_decoded.mant} ;
     else
     begin
         round_en_o       = add_result.round_en;

@@ -57,10 +57,10 @@ logic mul_uf;
 logic mul_uround_out;
 
 initial begin
-    outfile0=$fopen("testbench/test_rne.txt","r");
+    outfile0=$fopen("testbench/test_rup.txt","r");
     err_cnt = 0;
     test_cnt = 0;
-    rnd = RNE;
+    rnd = RUP;
     clk = 0;
     rst = 0;
     start = 0;
@@ -94,6 +94,20 @@ end
 //always #5 clk = ~clk;
 `endif
 
+
+// fp_fma  #(.FP_FORMAT(FP32)) fp_fma_inst
+// (
+//     .a_i(opA),
+//     .b_i(opB),
+//     .c_i(32'h0),
+//     .sub_i(rnd != RDN),
+//     .rnd_i(rnd),
+//     .round_only(round_only),
+//     .mul_ovf(mul_ovf),
+//     .mul_uf(mul_uf),
+//     .mul_uround_out(mul_uround_out),
+//     .urnd_result_o(urnd_result)
+// );
 
 fp_fma  #(.FP_FORMAT(FP32)) fp_fma_inst
 (
