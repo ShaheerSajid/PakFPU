@@ -41,7 +41,7 @@ logic invalid_o;
 logic [1:0] exp_cout_o;
 
 logic urpr_s;
-logic [MANT_WIDTH:0] urpr_mant;
+logic [MANT_WIDTH+1:0] urpr_mant;
 logic [EXP_WIDTH:0] urpr_exp;
 
 logic sign_o;
@@ -71,15 +71,15 @@ begin
 end
 
 assign urpr_s = a_decoded.sign ^ b_decoded.sign;
-assign urpr_exp = (a_decoded.exp - b_decoded.exp) + BIAS;
+assign urpr_exp = (a_decoded.exp - b_decoded.exp) + (BIAS-1);
 
-int_div #(.WIDTH(64)) int_div_inst
+int_div #(.WIDTH(2*MANT_WIDTH+2)) int_div_inst
 (
   .clk_i(clk_i),
   .reset_i(reset_i),
   .start_i(start_i),
-  .n_i({a_info.is_normal, a_decoded.mant,{5+MANT_WIDTH{1'b0}}}), 
-  .d_i({{5+MANT_WIDTH{1'b0}},b_info.is_normal, b_decoded.mant}),
+  .n_i({a_info.is_normal, a_decoded.mant,{MANT_WIDTH+1{1'b0}}}), 
+  .d_i({{MANT_WIDTH+1{1'b0}},b_info.is_normal, b_decoded.mant}),
   .q_o(urpr_mant), 
   .valid_o(done_o)
 );
@@ -98,8 +98,8 @@ lzc #(.WIDTH(MANT_WIDTH+1)) lzc_inst
 assign shifted_mant_norm = urpr_mant << shamt; 
 
 assign sign_o = urpr_s;
-assign {exp_cout_o, exp_o} = urpr_mant[MANT_WIDTH]? urpr_exp : urpr_exp - shamt;
-assign mant_o = urpr_mant[MANT_WIDTH]? urpr_mant[MANT_WIDTH-1:0] : shifted_mant_norm;
+assign {exp_cout_o, exp_o} = urpr_mant[MANT_WIDTH+1]? urpr_exp + 1 : urpr_exp - shamt;
+assign mant_o = urpr_mant[MANT_WIDTH+1]? urpr_mant >> 1 : shifted_mant_norm;
 
 //calculate RS
 // assign rs_o[1] = urpr_mant[2*MANT_WIDTH + 1] ? urpr_mant[MANT_WIDTH] : shifted_mant_norm[MANT_WIDTH - 1];
