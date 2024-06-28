@@ -6,7 +6,7 @@
 ../src/fp_f2i.sv
 ../src/fp_i2f.sv
 ../src/fp_mul.sv
-../src/fp_fma_v3.sv
+../src/fp_fma.sv
 ../src/int_div.sv
 ../src/divider.sv
 ../src/fp_div.sv

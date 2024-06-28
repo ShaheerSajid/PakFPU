@@ -78,8 +78,8 @@ int_div #(.WIDTH(64)) int_div_inst
   .clk_i(clk_i),
   .reset_i(reset_i),
   .start_i(start_i),
-  .n_i({a_info.is_normal, a_decoded.mant,{MANT_WIDTH{1'b0}}}), 
-  .d_i({{MANT_WIDTH{1'b0}},b_info.is_normal, b_decoded.mant}),
+  .n_i({a_info.is_normal, a_decoded.mant,{5+MANT_WIDTH{1'b0}}}), 
+  .d_i({{5+MANT_WIDTH{1'b0}},b_info.is_normal, b_decoded.mant}),
   .q_o(urpr_mant), 
   .valid_o(done_o)
 );
