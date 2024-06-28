@@ -20,7 +20,7 @@ questa_sim:
 	vlib work
 	vlog -sv -work work -f src.args
 	vlog -sv -work work +incdir+/home/shaheer/Desktop/pakfpu/src testbench/tb.sv
-	vsim -t 1ps -L work -voptargs="+acc" tb -do "do wave_fma.do; run -all; exit"
+	vsim -t 1ps -L work -voptargs="+acc" tb -do "do wave_div_tb.do; run -all; exit"
 	
 verilator_sim:
 	echo "Compiling Testbench"

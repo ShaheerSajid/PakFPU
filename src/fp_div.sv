@@ -13,16 +13,26 @@ module fp_div
     localparam R_IND = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}}
 )
 ( 
-    input clk_i,
-    input reset_i,
-    input [FP_WIDTH-1:0] a_i,
-    input [FP_WIDTH-1:0] b_i,
-    input start_i,
-    input roundmode_e rnd_i,
-    output done_o,
-    output uround_res_t urnd_result_o
+    clk_i,
+    reset_i,
+    a_i,
+    b_i,
+    start_i,
+    rnd_i,
+    done_o,
+    urnd_result_o
 
 );
+`include "fp_class.sv"
+
+input clk_i;
+input reset_i;
+input [FP_WIDTH-1:0] a_i;
+input [FP_WIDTH-1:0] b_i;
+input start_i;
+input roundmode_e rnd_i;
+output done_o;
+output uround_res_t urnd_result_o;
 
 fp_encoding_t result_o;
 logic [1:0] rs_o;
@@ -63,13 +73,13 @@ end
 assign urpr_s = a_decoded.sign ^ b_decoded.sign;
 assign urpr_exp = (a_decoded.exp - b_decoded.exp) + BIAS;
 
-int_div #(.WIDTH(MANT_WIDTH+1)) int_div_inst
+int_div #(.WIDTH(64)) int_div_inst
 (
   .clk_i(clk_i),
   .reset_i(reset_i),
   .start_i(start_i),
-  .n_i({a_info.is_normal, a_decoded.mant}), 
-  .d_i({b_info.is_normal, b_decoded.mant}),
+  .n_i({a_info.is_normal, a_decoded.mant,{MANT_WIDTH{1'b0}}}), 
+  .d_i({{MANT_WIDTH{1'b0}},b_info.is_normal, b_decoded.mant}),
   .q_o(urpr_mant), 
   .valid_o(done_o)
 );
@@ -78,7 +88,7 @@ int_div #(.WIDTH(MANT_WIDTH+1)) int_div_inst
 logic [MANT_WIDTH:0] shifted_mant_norm;
 //calculate shift
 logic [$clog2(FP_WIDTH):0] shamt;
-lzc #(.WIDTH(MANT_WIDTH)) lzc_inst
+lzc #(.WIDTH(MANT_WIDTH+1)) lzc_inst
 (
     .a_i(urpr_mant),
     .cnt_o(shamt),
@@ -88,8 +98,8 @@ lzc #(.WIDTH(MANT_WIDTH)) lzc_inst
 assign shifted_mant_norm = urpr_mant << shamt; 
 
 assign sign_o = urpr_s;
-assign exp_o = urpr_exp - shamt;
-assign mant_o = shifted_mant_norm;
+assign {exp_cout_o, exp_o} = urpr_mant[MANT_WIDTH]? urpr_exp : urpr_exp - shamt;
+assign mant_o = urpr_mant[MANT_WIDTH]? urpr_mant[MANT_WIDTH-1:0] : shifted_mant_norm;
 
 //calculate RS
 // assign rs_o[1] = urpr_mant[2*MANT_WIDTH + 1] ? urpr_mant[MANT_WIDTH] : shifted_mant_norm[MANT_WIDTH - 1];

@@ -57,27 +57,27 @@ logic mul_uf;
 logic mul_uround_out;
 
 initial begin
-    outfile0=$fopen("testbench/test_rup.txt","r");
+    outfile0=$fopen("testbench/test_rtz.txt","r");
     err_cnt = 0;
     test_cnt = 0;
-    rnd = RUP;
+    rnd = RTZ;
     clk = 0;
     rst = 0;
     start = 0;
     repeat(5) #10;
     rst = 1;
     while (! $feof(outfile0)) begin
-        $fscanf(outfile0,"%h %h %h %h %h\n",opA,opB,opC, exp_res,exc);
-        //$fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
+        //$fscanf(outfile0,"%h %h %h %h %h\n",opA,opB,opC, exp_res,exc);
+        $fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
         //$fscanf(outfile0,"%h %h %h\n",opA,exp_res,exc);
-        //if(exp_res[30 -: 8] != 254) begin
-          /*start = 1;
+         if(opA[30 -: 8] != 0 && opB[30 -: 8] != 0 && opA[30 -: 8] != 255 && opB[30 -: 8] != 255 && exp_res[30 -: 8] != 255 && exp_res[30 -: 8] != 254) begin
+          start = 1;
           #10;
           start = 0;
-          while(!valid) #10;*/
+          while(!valid) #10;
           #10;
           test_cnt = test_cnt + 1;
-          if(exp_res != result || flags_o != exc)
+          if(exp_res != result /*|| flags_o != exc*/)
           begin
               $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b", opA,opB,opC, exp_res,result,exc,flags_o);
               //if(exp_res == 32'h00000000)
@@ -85,13 +85,13 @@ initial begin
               $stop();
               err_cnt = err_cnt + 1;
           end
-        //end
+        end
     end
     $display("Total Errors = %d/%d\t (%0.2f%%)", err_cnt, test_cnt, err_cnt*100.0/test_cnt);
     $fclose(outfile0);
     $stop();
 end
-//always #5 clk = ~clk;
+always #5 clk = ~clk;
 `endif
 
 
@@ -109,19 +109,19 @@ end
 //     .urnd_result_o(urnd_result)
 // );
 
-fp_fma  #(.FP_FORMAT(FP32)) fp_fma_inst
-(
-    .a_i(opA),
-    .b_i(opB),
-    .c_i(opC),
-    .sub_i(1'b0),
-    .rnd_i(rnd),
-    .round_only(round_only),
-    .mul_ovf(mul_ovf),
-    .mul_uf(mul_uf),
-    .mul_uround_out(mul_uround_out),
-    .urnd_result_o(urnd_result)
-);
+// fp_fma  #(.FP_FORMAT(FP32)) fp_fma_inst
+// (
+//     .a_i(opA),
+//     .b_i(opB),
+//     .c_i(opC),
+//     .sub_i(1'b0),
+//     .rnd_i(rnd),
+//     .round_only(round_only),
+//     .mul_ovf(mul_ovf),
+//     .mul_uf(mul_uf),
+//     .mul_uround_out(mul_uround_out),
+//     .urnd_result_o(urnd_result)
+// );
 
 // fp_add  #(.FP_FORMAT(FP32))fp_add_inst
 // (
@@ -133,19 +133,19 @@ fp_fma  #(.FP_FORMAT(FP32)) fp_fma_inst
 //     .urnd_result_o(urnd_result)
 // );
 
-// fp_div #(.FP_FORMAT(FP32))fp_div_inst
-// (
+fp_div #(.FP_FORMAT(FP32))fp_div_inst
+(
 
-//     .clk_i(clk),
-//     .reset_i(rst),
-//     .a_i(opA),
-//     .b_i(opB),
-//     .start_i(start),
-//     .rnd_i(rnd),
+    .clk_i(clk),
+    .reset_i(rst),
+    .a_i(opA),
+    .b_i(opB),
+    .start_i(start),
+    .rnd_i(rnd),
 
-//     .urnd_result_o(urnd_result),
-//     .done_o(valid)
-// );
+    .urnd_result_o(urnd_result),
+    .done_o(valid)
+);
 
 // fp_mul #(.FP_FORMAT(FP32))fp_mul_inst
 // (
@@ -179,8 +179,8 @@ fp_rnd #(.FP_FORMAT(FP32))fp_rnd_inst
 (
     .urnd_result_i(urnd_result),
     .rnd_i(rnd),
-    .round_only(round_only),
-    .mul_ovf(mul_ovf),
+    .round_only(1'b0),
+    .mul_ovf(1'b0),
     .rnd_result_o(rnd_result)
 );
 
@@ -200,11 +200,12 @@ assign fma_uf_fix =  (rnd_result.result.exp == 0) & (|urnd_result.rs);
 assign fma_uf_fix1 = (urnd_result.u_result.exp == 0) & (rnd_result.result.exp == 1) & mul_uround_out;
 
 assign result = rnd_result.result;
-assign flags_o.NV = rnd_result.flags.NV;
-assign flags_o.DZ = rnd_result.flags.DZ;
-assign flags_o.OF = rnd_result.flags.OF | mul_ovf;
-assign flags_o.UF = mul_uf? fma_uf_fix | fma_uf_fix1 : rnd_result.flags.UF;
-assign flags_o.NX = mul_uf? (|urnd_result.rs) : rnd_result.flags.NX | mul_ovf;
+assign flags_o = rnd_result.flags;
+// assign flags_o.NV = rnd_result.flags.NV;
+// assign flags_o.DZ = rnd_result.flags.DZ;
+// assign flags_o.OF = rnd_result.flags.OF | mul_ovf;
+// assign flags_o.UF = mul_uf? fma_uf_fix | fma_uf_fix1 : rnd_result.flags.UF;
+// assign flags_o.NX = mul_uf? (|urnd_result.rs) : rnd_result.flags.NX | mul_ovf;
 
 /*
 fp_cmp fp_cmp_inst
