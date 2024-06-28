@@ -4,7 +4,9 @@ module fp_classify
 #(
     parameter fp_format_e FP_FORMAT = FP32,
 
-    localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT)
+    localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT),
+    localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT),
+    localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT)
 )
 (
     input [FP_WIDTH-1:0] a_i,

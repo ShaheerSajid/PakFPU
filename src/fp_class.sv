@@ -90,3 +90,17 @@ typedef struct packed {
     status_t flags;
 } round_res_t;
 // endclass
+
+typedef struct packed {
+    logic sign;
+    logic [EXP_WIDTH-1:0] exp;
+    logic [2*MANT_WIDTH + 1:0] mant;
+} fp_encoding_fma_t;
+
+typedef struct packed {
+    fp_encoding_fma_t u_result;
+    logic [1:0] rs;
+    logic round_en;
+    logic invalid;
+    logic [1:0] exp_cout;
+} uround_res_fma_t;

@@ -199,22 +199,8 @@ end
 ////////////////////////////////////////////////////////
 // Add/Sub 
 ////////////////////////////////////////////////////////
-typedef struct packed {
-    logic sign;
-    logic [EXP_WIDTH-1:0] exp;
-    logic [MANT_WIDTH_ADDER-1:0] mant;
-} fp_encoding_48_t;
-
-typedef struct packed {
-    fp_encoding_48_t u_result;
-    logic [1:0] rs;
-    logic round_en;
-    logic invalid;
-    logic [1:0] exp_cout;
-} uround_res_48_t;
-
 logic mul_ovf_sig;
-uround_res_48_t add_result;
+uround_res_fma_t add_result;
 
 fp_fma_add_unit  #(.FP_FORMAT(FP48)) fp_add_inst
 (
