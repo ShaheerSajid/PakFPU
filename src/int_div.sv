@@ -9,7 +9,8 @@ module int_div
   input [WIDTH-1:0] n_i, 
   input [WIDTH-1:0] d_i,
   
-  output logic [WIDTH-1:0] q_o, 
+  output logic [WIDTH-1:0] q_o,
+  output logic [WIDTH-1:0] r_o, 
   output logic valid_o
 );
 
@@ -119,6 +120,13 @@ always_ff @( posedge clk_i or negedge reset_i ) begin
     q_o <= 'h0;
   else if(cur_state == DONE)
     q_o     <= (R[2*WIDTH-1])? Q_fix - 1'b1 : Q_fix;
+end
+
+always_ff @( posedge clk_i or negedge reset_i ) begin
+  if(!reset_i)
+    r_o <= 'h0;
+  else if(cur_state == DONE)
+    r_o     <= (R[2*WIDTH-1])? $signed(R) + $signed(D) : R;
 end
 
 always_ff @( posedge clk_i or negedge reset_i ) begin

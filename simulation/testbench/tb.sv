@@ -59,10 +59,10 @@ logic mul_uround_out;
 logic divide_by_zero;
 
 initial begin
-    outfile0=$fopen("testbench/test_rtz.txt","r");
+    outfile0=$fopen("testbench/test_rdn.txt","r");
     err_cnt = 0;
     test_cnt = 0;
-    rnd = RTZ;
+    rnd = RDN;
     clk = 0;
     rst = 0;
     start = 0;
@@ -72,7 +72,7 @@ initial begin
         //$fscanf(outfile0,"%h %h %h %h %h\n",opA,opB,opC, exp_res,exc);
         $fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
         //$fscanf(outfile0,"%h %h %h\n",opA,exp_res,exc);
-        //if(opB[30 -: 8] != 0) begin
+        //if(opA[30 -: 8] != 0 && opB[30 -: 8] == 0) begin
           start = 1;
           #10;
           start = 0;

@@ -110,8 +110,13 @@ begin
 end
 
 assign urpr_s = a_decoded.sign ^ b_decoded.sign;
-assign urpr_exp = (a_decoded.exp - b_decoded.exp) + ((a_info.is_subnormal | b_info.is_subnormal) ? BIAS: BIAS - 1);
-
+always_comb 
+  case({a_info.is_subnormal, b_info.is_subnormal})
+  2'b00:  urpr_exp = (a_decoded.exp - b_decoded.exp) + (BIAS - 1);
+  2'b01:  urpr_exp = (a_decoded.exp - b_decoded.exp) + (BIAS - 2);
+  2'b10:  urpr_exp = (a_decoded.exp - b_decoded.exp) + (BIAS);
+  2'b11:  urpr_exp = (a_decoded.exp - b_decoded.exp) + (BIAS - 1);
+  endcase
 
 //calculate shift
 logic [$clog2(FP_WIDTH):0] shamt_a;
@@ -140,6 +145,7 @@ int_div #(.WIDTH(2*MANT_WIDTH+2)) int_div_inst
   .n_i({a_info.is_normal, a_decoded.mant,{MANT_WIDTH+1{1'b0}}} << shamt_a), 
   .d_i({{MANT_WIDTH+1{1'b0}},b_info.is_normal, b_decoded.mant} << shamt_b),
   .q_o(urpr_mant), 
+  .r_o(), 
   .valid_o(done_o)
 );
 

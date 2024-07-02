@@ -23,8 +23,6 @@ add wave -noupdate -expand /tb/fp_div_inst/a_decoded
 add wave -noupdate -expand /tb/fp_div_inst/b_decoded
 add wave -noupdate /tb/fp_div_inst/a_info
 add wave -noupdate /tb/fp_div_inst/b_info
-add wave -noupdate /tb/fp_div_inst/shifted_mant_norm
-add wave -noupdate /tb/fp_div_inst/shamt
 add wave -noupdate -divider {INT DIV}
 add wave -noupdate /tb/fp_div_inst/int_div_inst/clk_i
 add wave -noupdate /tb/fp_div_inst/int_div_inst/reset_i
@@ -32,6 +30,7 @@ add wave -noupdate /tb/fp_div_inst/int_div_inst/start_i
 add wave -noupdate /tb/fp_div_inst/int_div_inst/n_i
 add wave -noupdate /tb/fp_div_inst/int_div_inst/d_i
 add wave -noupdate /tb/fp_div_inst/int_div_inst/q_o
+add wave -noupdate /tb/fp_div_inst/int_div_inst/r_o
 add wave -noupdate /tb/fp_div_inst/int_div_inst/valid_o
 add wave -noupdate /tb/fp_div_inst/int_div_inst/R
 add wave -noupdate /tb/fp_div_inst/int_div_inst/D
@@ -50,7 +49,7 @@ add wave -noupdate /tb/fp_rnd_inst/round_only
 add wave -noupdate /tb/fp_rnd_inst/mul_ovf
 add wave -noupdate /tb/fp_rnd_inst/rnd_result_o
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {14320 ps} 0}
+WaveRestoreCursors {{Cursor 1} {3610 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 237
 configure wave -valuecolwidth 151
@@ -66,4 +65,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {14266 ps} {14330 ps}
+WaveRestoreZoom {3519 ps} {3640 ps}
