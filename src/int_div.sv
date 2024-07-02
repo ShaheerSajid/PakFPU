@@ -112,6 +112,8 @@ always_ff @( posedge clk_i or negedge reset_i ) begin
   end
 end
 //output
+logic [2*WIDTH - 1:0] R_fix;
+assign R_fix = $signed(R) + $signed(D);
 logic [WIDTH - 1:0] Q_fix;
 assign Q_fix = Q - (~Q);
 
@@ -126,7 +128,7 @@ always_ff @( posedge clk_i or negedge reset_i ) begin
   if(!reset_i)
     r_o <= 'h0;
   else if(cur_state == DONE)
-    r_o     <= (R[2*WIDTH-1])? $signed(R) + $signed(D) : R;
+    r_o     <= (R[2*WIDTH-1])? R_fix[2*WIDTH-1 -: WIDTH] : R[2*WIDTH-1 -: WIDTH];
 end
 
 always_ff @( posedge clk_i or negedge reset_i ) begin

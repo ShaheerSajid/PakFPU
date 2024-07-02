@@ -43,7 +43,7 @@ logic invalid_o;
 logic [1:0] exp_cout_o;
 
 logic urpr_s;
-logic [MANT_WIDTH+1:0] urpr_mant;
+logic [MANT_WIDTH+1+GUARD_BITS:0] urpr_mant;
 logic [EXP_WIDTH+1:0] urpr_exp;
 logic [EXP_WIDTH+1:0] shift_exp;
 
@@ -120,42 +120,45 @@ always_comb
 
 //calculate shift
 logic [$clog2(FP_WIDTH):0] shamt_a;
-lzc #(.WIDTH(MANT_WIDTH+1)) lzc_inst_0
+lzc #(.WIDTH(MANT_WIDTH+1+GUARD_BITS)) lzc_inst_0
 (
-    .a_i({a_info.is_normal,a_decoded.mant}),
+    .a_i({a_info.is_normal,a_decoded.mant,{GUARD_BITS{1'b0}}}),
     .cnt_o(shamt_a),
     .zero_o()
 );
 
 logic [$clog2(FP_WIDTH):0] shamt_b;
-lzc #(.WIDTH(MANT_WIDTH+1)) lzc_inst_1
+lzc #(.WIDTH(MANT_WIDTH+1+GUARD_BITS)) lzc_inst_1
 (
-    .a_i({b_info.is_normal,b_decoded.mant}),
+    .a_i({b_info.is_normal,b_decoded.mant,{GUARD_BITS{1'b0}}}),
     .cnt_o(shamt_b),
     .zero_o()
 );
 
 assign shift_exp = urpr_exp - shamt_a + shamt_b;
-
-int_div #(.WIDTH(2*MANT_WIDTH+2)) int_div_inst
+logic [MANT_WIDTH+1+GUARD_BITS:0] rem_o;
+int_div #(.WIDTH(2*MANT_WIDTH+2+GUARD_BITS)) int_div_inst
 (
   .clk_i(clk_i),
   .reset_i(reset_i),
   .start_i(start_i),
-  .n_i({a_info.is_normal, a_decoded.mant,{MANT_WIDTH+1{1'b0}}} << shamt_a), 
-  .d_i({{MANT_WIDTH+1{1'b0}},b_info.is_normal, b_decoded.mant} << shamt_b),
+  .n_i({a_info.is_normal, a_decoded.mant,{MANT_WIDTH+1{1'b0}},{GUARD_BITS{1'b0}}} << shamt_a), 
+  .d_i({{MANT_WIDTH+1{1'b0}},{GUARD_BITS{1'b0}},b_info.is_normal, b_decoded.mant} << shamt_b),
   .q_o(urpr_mant), 
-  .r_o(), 
+  .r_o(rem_o), 
   .valid_o(done_o)
 );
 
+
 assign sign_o = urpr_s;
-assign {exp_cout_o, exp_o} = (urpr_mant[MANT_WIDTH+1])? shift_exp + 1: shift_exp;
-assign mant_o = (urpr_mant[MANT_WIDTH+1])? urpr_mant >> 1 : urpr_mant;
+assign {exp_cout_o, exp_o} = (urpr_mant[MANT_WIDTH+1+GUARD_BITS])? shift_exp + 1: shift_exp;
+assign mant_o = (urpr_mant[MANT_WIDTH+1+GUARD_BITS])? urpr_mant >> (1+GUARD_BITS) : urpr_mant >> (GUARD_BITS);
 
 //calculate RS
-assign rs_o[1] = 1'b0;
-assign rs_o[0] = 1'b0;
+logic sticky_bit;
+assign sticky_bit = rem_o != 'h0;
+assign rs_o[1] = (urpr_mant[MANT_WIDTH+1+GUARD_BITS])? urpr_mant[GUARD_BITS] : urpr_mant[GUARD_BITS-1];
+assign rs_o[0] = (urpr_mant[MANT_WIDTH+1+GUARD_BITS])? |urpr_mant[GUARD_BITS-1:0] | sticky_bit: |urpr_mant[GUARD_BITS-2:0] | sticky_bit;
 
 assign invalid_o = a_info.is_signalling | b_info.is_signalling | ((a_info.is_inf & b_info.is_inf) | (a_info.is_zero & b_info.is_zero));
 

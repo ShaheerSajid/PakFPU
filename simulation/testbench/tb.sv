@@ -59,10 +59,10 @@ logic mul_uround_out;
 logic divide_by_zero;
 
 initial begin
-    outfile0=$fopen("testbench/test_rdn.txt","r");
+    outfile0=$fopen("testbench/test_rne.txt","r");
     err_cnt = 0;
     test_cnt = 0;
-    rnd = RDN;
+    rnd = RNE;
     clk = 0;
     rst = 0;
     start = 0;
@@ -79,7 +79,7 @@ initial begin
           while(!valid) #10;
           #10;
           test_cnt = test_cnt + 1;
-          if(exp_res != result /*|| flags_o != exc*/)
+          if(exp_res != result || flags_o != exc)
           begin
               $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b", opA,opB,opC, exp_res,result,exc,flags_o);
               $display("Exp=%d urpr.e=%d sh_a=%d sh_b=%d urpr.m=%b", exp_res[30 -:8],fp_div_inst.urpr_exp,fp_div_inst.shamt_a, fp_div_inst.shamt_b,fp_div_inst.urpr_mant[MANT_WIDTH+1]);
@@ -207,12 +207,20 @@ assign fma_uf_fix =  (rnd_result.result.exp == 0) & (|urnd_result.rs);
 assign fma_uf_fix1 = (urnd_result.u_result.exp == 0) & (rnd_result.result.exp == 1) & mul_uround_out;
 
 assign result = rnd_result.result;
-assign flags_o = rnd_result.flags;
+// assign flags_o = rnd_result.flags;
+//fma settings
 // assign flags_o.NV = rnd_result.flags.NV;
 // assign flags_o.DZ = rnd_result.flags.DZ;
 // assign flags_o.OF = rnd_result.flags.OF | mul_ovf;
 // assign flags_o.UF = mul_uf? fma_uf_fix | fma_uf_fix1 : rnd_result.flags.UF;
 // assign flags_o.NX = mul_uf? (|urnd_result.rs) : rnd_result.flags.NX | mul_ovf;
+
+//div settings
+assign flags_o.NV = rnd_result.flags.NV;
+assign flags_o.DZ = divide_by_zero;
+assign flags_o.OF = rnd_result.flags.OF;
+assign flags_o.UF = rnd_result.flags.UF;
+assign flags_o.NX = rnd_result.flags.NX;
 
 /*
 fp_cmp fp_cmp_inst
