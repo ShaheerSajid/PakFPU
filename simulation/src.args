@@ -8,6 +8,5 @@
 ../src/fp_mul.sv
 ../src/fp_fma.sv
 ../src/int_div.sv
-../src/divider.sv
 ../src/fp_div.sv
 ../src/lzc.sv

@@ -43,8 +43,14 @@ add wave -noupdate /tb/fp_div_inst/int_div_inst/d_internal
 add wave -noupdate /tb/fp_div_inst/int_div_inst/cur_state
 add wave -noupdate /tb/fp_div_inst/int_div_inst/nxt_state
 add wave -noupdate /tb/fp_div_inst/int_div_inst/Q_fix
+add wave -noupdate -divider Roubd
+add wave -noupdate /tb/fp_rnd_inst/urnd_result_i
+add wave -noupdate /tb/fp_rnd_inst/rnd_i
+add wave -noupdate /tb/fp_rnd_inst/round_only
+add wave -noupdate /tb/fp_rnd_inst/mul_ovf
+add wave -noupdate /tb/fp_rnd_inst/rnd_result_o
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {44484819 ps} 0}
+WaveRestoreCursors {{Cursor 1} {14320 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 237
 configure wave -valuecolwidth 151
@@ -60,4 +66,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {39473049 ps} {153032429 ps}
+WaveRestoreZoom {14266 ps} {14330 ps}

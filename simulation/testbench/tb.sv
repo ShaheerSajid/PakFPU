@@ -32,6 +32,7 @@ logic round_only;
 logic mul_ovf;
 logic mul_uf;
 logic mul_uround_out;
+logic divide_by_zero;
 `else
 logic [1:0] rs;
 logic [31:0] result;
@@ -55,6 +56,7 @@ logic round_only;
 logic mul_ovf;
 logic mul_uf;
 logic mul_uround_out;
+logic divide_by_zero;
 
 initial begin
     outfile0=$fopen("testbench/test_rtz.txt","r");
@@ -70,7 +72,7 @@ initial begin
         //$fscanf(outfile0,"%h %h %h %h %h\n",opA,opB,opC, exp_res,exc);
         $fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
         //$fscanf(outfile0,"%h %h %h\n",opA,exp_res,exc);
-         if(opA[30 -: 8] != 0 && opB[30 -: 8] != 0 && opA[30 -: 8] != 255 && opB[30 -: 8] != 255 && exp_res[30 -: 8] != 0 && exp_res[30 -: 8] != 255 && exp_res[30 -: 8] != 254) begin
+        //if(opB[30 -: 8] != 0) begin
           start = 1;
           #10;
           start = 0;
@@ -80,12 +82,16 @@ initial begin
           if(exp_res != result /*|| flags_o != exc*/)
           begin
               $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b", opA,opB,opC, exp_res,result,exc,flags_o);
+              $display("Exp=%d urpr.e=%d sh_a=%d sh_b=%d urpr.m=%b", exp_res[30 -:8],fp_div_inst.urpr_exp,fp_div_inst.shamt_a, fp_div_inst.shamt_b,fp_div_inst.urpr_mant[MANT_WIDTH+1]);
+              
+              
+              
               //if(exp_res == 32'h00000000)
               //if(err_cnt == 0)
               $stop();
               err_cnt = err_cnt + 1;
           end
-        end
+        //end
     end
     $display("Total Errors = %d/%d\t (%0.2f%%)", err_cnt, test_cnt, err_cnt*100.0/test_cnt);
     $fclose(outfile0);
@@ -144,6 +150,7 @@ fp_div #(.FP_FORMAT(FP32))fp_div_inst
     .rnd_i(rnd),
 
     .urnd_result_o(urnd_result),
+    .divide_by_zero(divide_by_zero),
     .done_o(valid)
 );
 
