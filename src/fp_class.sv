@@ -1,46 +1,106 @@
-import fp_pkg::*;
 
-module fp_class
-#(
-    parameter fp_format_e FP_FORMAT = FP32,
+//helper functions
+// virtual class Functions 
+// #(  
+//         parameter fp_format_e FP_FORMAT = FP32
+// );
+//     localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT);
+//     localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT);
+//     localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
 
-    localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT)
-)
-(
-    input [FP_WIDTH-1:0] a_i,
-    input start_i,
-    output classmask_e class_o,
-    output done_o
-);
+function logic sign(logic [FP_WIDTH-1:0] val);
+    return val[FP_WIDTH-1];
+endfunction
+function logic [EXP_WIDTH-1:0] exp(logic [FP_WIDTH-1:0] val);
+    return val[FP_WIDTH-2-:EXP_WIDTH];
+endfunction
+function logic [MANT_WIDTH-1:0] mant(logic [FP_WIDTH-1:0] val);
+    return val[FP_WIDTH-2-EXP_WIDTH:0];
+endfunction
+function logic is_minus(logic [FP_WIDTH-1:0] val);
+    return sign(val);
+endfunction
+function logic is_normal(logic [FP_WIDTH-1:0] val);
+    return (exp(val) >= 1) && (exp(val) <= (2**EXP_WIDTH-2));
+endfunction
+function logic is_subnormal(logic [FP_WIDTH-1:0] val);
+    return (exp(val) == 0) && (mant(val) != 0);
+endfunction
+function logic is_zero(logic [FP_WIDTH-1:0] val);
+    return val[FP_WIDTH-2:0] == 0;
+endfunction
+function logic is_inf(logic [FP_WIDTH-1:0] val);
+    return exp(val) == (2**EXP_WIDTH-1) && mant(val) == 0;
+endfunction
+function logic is_nan(logic [FP_WIDTH-1:0] val);
+    return exp(val) == (2**EXP_WIDTH-1) && mant(val) != 0;
+endfunction
+function logic is_signalling(logic [FP_WIDTH-1:0] val);
+    return exp(val) == (2**EXP_WIDTH-1) && mant(val) != 0 && !val[FP_WIDTH-2-EXP_WIDTH];
+endfunction
+function logic is_quiet(logic [FP_WIDTH-1:0] val);
+    return exp(val) == (2**EXP_WIDTH-1) && val[FP_WIDTH-2-EXP_WIDTH];
+endfunction
+function logic is_canonical(logic [FP_WIDTH-1:0] val);
+    return is_finite(val) | is_inf(val) | (exp(val) == (2**EXP_WIDTH-1) && val[FP_WIDTH-2-EXP_WIDTH]);
+endfunction
+function logic is_finite(logic [FP_WIDTH-1:0] val);
+    return is_zero(val) | is_subnormal(val) | is_normal(val);
+endfunction
 
-/*
-rs1 is −∞. 0xff800000
-rs1 is a negative normal number. sign & exponent != 0 && exponent != 255
-rs1 is a negative subnormal number. sign & exponent == 0 & mant != 0
-rs1 is −0. 0x80000000
-rs1 is +0. 0x00000000
-rs1 is a positive subnormal number. exponent == 0 & mant != 0
-rs1 is a positive normal number. exponent != 0 && exponent != 255
-rs1 is +∞. 0x7f800000
-rs1 is a signaling NaN. 0xx7f800001 - 0x7fbfffff, 0xff800001 - 0xffbfffff
-rs1 is a quiet NaN. 0x7fc00000 - 0x7fffffff, 0xffc00000 - 0xffffffff
-*/
+function fp_info_t fp_info(logic [FP_WIDTH-1:0] val);
+    fp_info_t info;
+    info.is_minus       = is_minus(val);
+    info.is_normal      = is_normal(val);
+    info.is_subnormal   = is_subnormal(val);
+    info.is_zero        = is_zero(val);
+    info.is_inf         = is_inf(val);
+    info.is_nan         = is_nan(val);
+    info.is_signalling  = is_signalling(val);
+    info.is_canonical   = is_canonical(val);
+    info.is_finite      = is_finite(val);
+    info.is_quiet       = is_quiet(val);
+    return info;
+endfunction
+// endclass
 
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t a_decoded;
-assign a_decoded = a_i;
+// virtual class Structs 
+// #(  
+//     parameter fp_format_e FP_FORMAT = FP32
+// );
 
-fp_info_t a_info;
-assign a_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(a_i);
+//     localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT);
+//     localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
+typedef struct packed {
+    logic sign;
+    logic [EXP_WIDTH-1:0] exp;
+    logic [MANT_WIDTH-1:0] mant;
+} fp_encoding_t;
 
-assign class_o[0] = a_info.is_inf       & a_info.is_minus;
-assign class_o[1] = a_info.is_normal    & a_info.is_minus; 
-assign class_o[2] = a_info.is_subnormal & a_info.is_minus;
-assign class_o[3] = a_info.is_zero      & a_info.is_minus;
-assign class_o[4] = a_info.is_zero      & !a_info.is_minus;
-assign class_o[5] = a_info.is_subnormal & !a_info.is_minus;
-assign class_o[6] = a_info.is_normal    & !a_info.is_minus; 
-assign class_o[7] = a_info.is_inf       & !a_info.is_minus;
-assign class_o[8] = a_info.is_signalling;
-assign class_o[9] = a_info.is_quiet;
+typedef struct packed {
+    fp_encoding_t u_result;
+    logic [1:0] rs;
+    logic round_en;
+    logic invalid;
+    logic [1:0] exp_cout;
+} uround_res_t;
 
-endmodule
+typedef struct packed {
+    fp_encoding_t result;
+    status_t flags;
+} round_res_t;
+// endclass
+
+typedef struct packed {
+    logic sign;
+    logic [EXP_WIDTH-1:0] exp;
+    logic [2*MANT_WIDTH + 1:0] mant;
+} fp_encoding_fma_t;
+
+typedef struct packed {
+    fp_encoding_fma_t u_result;
+    logic [1:0] rs;
+    logic round_en;
+    logic invalid;
+    logic [1:0] exp_cout;
+} uround_res_fma_t;

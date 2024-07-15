@@ -20,7 +20,7 @@ module fp_f2i
     output status_t flags_o,
     output done_o
 );
-
+`include "fp_class.sv"
 logic [MANT_WIDTH+INT_WIDTH-1:0] pre_round_mant;
 logic [INT_WIDTH:0] round_int;
 logic [1:0] rs;
@@ -29,11 +29,11 @@ logic stickybit;
 logic round_up;
 logic  [EXP_WIDTH-1:0] shamt;
 
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t a_decoded;
+fp_encoding_t a_decoded;
 assign a_decoded = a_i;
 
 fp_info_t a_info;
-assign a_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(a_i);
+assign a_info = fp_info(a_i);
 
 
 //sanity check

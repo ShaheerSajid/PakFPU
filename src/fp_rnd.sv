@@ -9,19 +9,27 @@ module fp_rnd
     localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT)
 )
 (
-    input Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_i,
-    input roundmode_e rnd_i,
-
-    output Structs #(.FP_FORMAT(FP_FORMAT))::round_res_t rnd_result_o
+    urnd_result_i,
+    rnd_i,
+    round_only,
+    mul_ovf,
+    rnd_result_o
 );
+`include "fp_class.sv"
 
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t a_i;
+input uround_res_t urnd_result_i;
+input roundmode_e rnd_i;
+input round_only;
+input mul_ovf;
+output round_res_t rnd_result_o;
+
+fp_encoding_t a_i;
 logic [1:0] rs_i;
 logic round_en_i;
 logic invalid_i;
 logic [1:0] exp_cout_i;
 
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t out_o;
+fp_encoding_t out_o;
 status_t flags_o;
 
 
@@ -98,7 +106,7 @@ assign flags_o.DZ = 1'b0;
 
 always_comb
 begin
-    if(round_en_i && flags_o.OF)
+    if((round_en_i && flags_o.OF) | mul_ovf)
     begin
         out_o.sign = sign_o;
         case(rnd_i)
@@ -140,7 +148,7 @@ begin
             end
         endcase
     end
-    else if(round_en_i && $signed(exp_o) <= $signed(0))
+    else if(round_en_i && $signed(exp_o) <= $signed(0) && !round_only)
     begin
         out_o.sign  = usign_o;
         out_o.exp  = urounded_mant[MANT_WIDTH]? 'd1 : 'd0;

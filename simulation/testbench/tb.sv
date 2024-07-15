@@ -12,23 +12,33 @@ module tb
     output status_t flags_o
 )
 `endif ;
+parameter fp_format_e FP_FORMAT = FP32;
 
+localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT);
+localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT);
+localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
+`include "fp_class.sv"
 
 `ifdef VERILATOR
 logic [1:0] rs;
 logic [63:0] u_result;
-Structs #(.FP_FORMAT(FP32))::uround_res_t urnd_result;
-Structs #(.FP_FORMAT(FP32))::round_res_t rnd_result;
+uround_res_t urnd_result;
+round_res_t rnd_result;
 logic round_en;
 logic [1:0] exp_cout;
 logic invalid;
 logic lt,le,eq;
+logic round_only;
+logic mul_ovf;
+logic mul_uf;
+logic mul_uround_out;
+logic divide_by_zero;
 `else
 logic [1:0] rs;
 logic [31:0] result;
 logic [31:0] u_result;
-Structs #(.FP_FORMAT(FP32))::uround_res_t urnd_result;
-Structs #(.FP_FORMAT(FP32))::round_res_t rnd_result;
+uround_res_t urnd_result;
+round_res_t rnd_result;
 logic round_en;
 integer outfile0; 
 logic [31:0] opA,opB,opC,exp_res;
@@ -42,56 +52,82 @@ logic clk;
 logic rst;
 logic start;
 logic valid;
+logic round_only;
+logic mul_ovf;
+logic mul_uf;
+logic mul_uround_out;
+logic divide_by_zero;
 
 initial begin
-    outfile0=$fopen("testbench/test_rdn.txt","r");
+    outfile0=$fopen("testbench/test_rne.txt","r");
     err_cnt = 0;
     test_cnt = 0;
-    rnd = RDN;
+    rnd = RNE;
     clk = 0;
     rst = 0;
     start = 0;
     repeat(5) #10;
     rst = 1;
     while (! $feof(outfile0)) begin
-        $fscanf(outfile0,"%h %h %h %h %h\n",opA,opB,opC, exp_res,exc);
-        //$fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
+        //$fscanf(outfile0,"%h %h %h %h %h\n",opA,opB,opC, exp_res,exc);
+        $fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
         //$fscanf(outfile0,"%h %h %h\n",opA,exp_res,exc);
-        if(opA[30 -: 8] != 0 && opB[30 -: 8] != 0 && opC[30 -: 8] != 0 && opA[30 -: 8] != 255 && opB[30 -: 8] != 255 && opC[30 -: 8] != 255) begin
-          /*start = 1;
+        //if(opA[30 -: 8] != 0 && opB[30 -: 8] == 0) begin
+          start = 1;
           #10;
           start = 0;
-          while(!valid) #10;*/
+          while(!valid) #10;
           #10;
           test_cnt = test_cnt + 1;
-          if(exp_res != result /*|| flags_o != exc*/)
+          if(exp_res != result || flags_o != exc)
           begin
-              $display("%h %h %h Expected=%h Actual=%h %h\t%b", opA,opB,opC, exp_res,result,exc,rs);
+              $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b", opA,opB,opC, exp_res,result,exc,flags_o);
+              $display("Exp=%d urpr.e=%d sh_a=%d sh_b=%d urpr.m=%b", exp_res[30 -:8],fp_div_inst.urpr_exp,fp_div_inst.shamt_a, fp_div_inst.shamt_b,fp_div_inst.urpr_mant[MANT_WIDTH+1]);
+              
+              
+              
               //if(exp_res == 32'h00000000)
-              if(err_cnt == 2)
+              //if(err_cnt == 0)
               $stop();
               err_cnt = err_cnt + 1;
           end
-        end
+        //end
     end
     $display("Total Errors = %d/%d\t (%0.2f%%)", err_cnt, test_cnt, err_cnt*100.0/test_cnt);
     $fclose(outfile0);
     $stop();
 end
-//always #5 clk = ~clk;
+always #5 clk = ~clk;
 `endif
 
 
-fp_fma  #(.FP_FORMAT(FP32))fp_add_inst
-(
-    .a_i(opA),
-    .b_i(opB),
-    .c_i(opC),
-    .sub_i(1'b0),
-    .rnd_i(rnd),
+// fp_fma  #(.FP_FORMAT(FP32)) fp_fma_inst
+// (
+//     .a_i(opA),
+//     .b_i(opB),
+//     .c_i(32'h0),
+//     .sub_i(rnd != RDN),
+//     .rnd_i(rnd),
+//     .round_only(round_only),
+//     .mul_ovf(mul_ovf),
+//     .mul_uf(mul_uf),
+//     .mul_uround_out(mul_uround_out),
+//     .urnd_result_o(urnd_result)
+// );
 
-    .urnd_result_o(urnd_result)
-);
+// fp_fma  #(.FP_FORMAT(FP32)) fp_fma_inst
+// (
+//     .a_i(opA),
+//     .b_i(opB),
+//     .c_i(opC),
+//     .sub_i(1'b0),
+//     .rnd_i(rnd),
+//     .round_only(round_only),
+//     .mul_ovf(mul_ovf),
+//     .mul_uf(mul_uf),
+//     .mul_uround_out(mul_uround_out),
+//     .urnd_result_o(urnd_result)
+// );
 
 // fp_add  #(.FP_FORMAT(FP32))fp_add_inst
 // (
@@ -103,19 +139,20 @@ fp_fma  #(.FP_FORMAT(FP32))fp_add_inst
 //     .urnd_result_o(urnd_result)
 // );
 
-// fp_div #(.FP_FORMAT(FP32))fp_div_inst
-// (
+fp_div #(.FP_FORMAT(FP32))fp_div_inst
+(
 
-//     .clk_i(clk),
-//     .reset_i(rst),
-//     .a_i(opA),
-//     .b_i(opB),
-//     .start_i(start),
-//     .rnd_i(rnd),
+    .clk_i(clk),
+    .reset_i(rst),
+    .a_i(opA),
+    .b_i(opB),
+    .start_i(start),
+    .rnd_i(rnd),
 
-//     .urnd_result_o(urnd_result),
-//     .done_o(valid)
-// );
+    .urnd_result_o(urnd_result),
+    .divide_by_zero(divide_by_zero),
+    .done_o(valid)
+);
 
 // fp_mul #(.FP_FORMAT(FP32))fp_mul_inst
 // (
@@ -149,7 +186,8 @@ fp_rnd #(.FP_FORMAT(FP32))fp_rnd_inst
 (
     .urnd_result_i(urnd_result),
     .rnd_i(rnd),
-
+    .round_only(1'b0),
+    .mul_ovf(1'b0),
     .rnd_result_o(rnd_result)
 );
 
@@ -163,9 +201,26 @@ fp_rnd #(.FP_FORMAT(FP32))fp_rnd_inst
 //     .flags_o(flags_o)
 // );
 
+logic fma_uf_fix;
+logic fma_uf_fix1;
+assign fma_uf_fix =  (rnd_result.result.exp == 0) & (|urnd_result.rs);
+assign fma_uf_fix1 = (urnd_result.u_result.exp == 0) & (rnd_result.result.exp == 1) & mul_uround_out;
 
-assign result = urnd_result.u_result;
-assign flags_o = rnd_result.flags;
+assign result = rnd_result.result;
+// assign flags_o = rnd_result.flags;
+//fma settings
+// assign flags_o.NV = rnd_result.flags.NV;
+// assign flags_o.DZ = rnd_result.flags.DZ;
+// assign flags_o.OF = rnd_result.flags.OF | mul_ovf;
+// assign flags_o.UF = mul_uf? fma_uf_fix | fma_uf_fix1 : rnd_result.flags.UF;
+// assign flags_o.NX = mul_uf? (|urnd_result.rs) : rnd_result.flags.NX | mul_ovf;
+
+//div settings
+assign flags_o.NV = rnd_result.flags.NV;
+assign flags_o.DZ = divide_by_zero;
+assign flags_o.OF = rnd_result.flags.OF;
+assign flags_o.UF = rnd_result.flags.UF;
+assign flags_o.NX = rnd_result.flags.NX;
 
 /*
 fp_cmp fp_cmp_inst

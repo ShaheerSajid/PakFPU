@@ -15,13 +15,20 @@ module fp_i2f
 
 )
 (
-    input [INT_WIDTH-1:0] a_i,
-    input start_i,
-    input signed_i,
-    output done_o,
-    output Structs #(.FP_FORMAT(FP_FORMAT))::uround_res_t urnd_result_o
+    a_i,
+    start_i,
+    signed_i,
+    done_o,
+    urnd_result_o
 );
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t result_o;
+`include "fp_class.sv"
+input [INT_WIDTH-1:0] a_i;
+input start_i;
+input signed_i;
+output done_o;
+output uround_res_t urnd_result_o;
+
+fp_encoding_t result_o;
 logic [1:0] rs_o;
 logic round_en_o;
 logic invalid_o;

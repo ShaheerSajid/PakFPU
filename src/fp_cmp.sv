@@ -20,7 +20,7 @@ module fp_cmp
     output done_o,
     output status_t flags_o
 );
-
+`include "fp_class.sv"
 logic exp_eq, exp_lt, exp_gt;
 logic mant_eq, mant_lt, mant_gt;
 logic eq;
@@ -28,8 +28,8 @@ logic lt;
 logic le;
 logic invalid;
 
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t a_decoded;
-Structs #(.FP_FORMAT(FP_FORMAT))::fp_encoding_t b_decoded;
+fp_encoding_t a_decoded;
+fp_encoding_t b_decoded;
 
 assign a_decoded = a_i;
 assign b_decoded = b_i;
@@ -37,8 +37,8 @@ assign b_decoded = b_i;
 fp_info_t a_info;
 fp_info_t b_info;
 
-assign a_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(a_i);
-assign b_info = Functions #(.FP_FORMAT(FP_FORMAT))::fp_info(b_i);
+assign a_info = fp_info(a_i);
+assign b_info = fp_info(b_i);
 
 
 assign exp_eq = (a_decoded.exp == b_decoded.exp);

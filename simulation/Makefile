@@ -4,23 +4,23 @@ LEVEL = $(LEVEL)
 gen_test: 
 	echo "Generating Tests"
 	echo "${TEST} RDN"
-	./testfloat/testfloat_gen ${TEST} -tininessafter -rmin -seed 1000 -level $(LEVEL) > testbench/test_rdn.txt 
+	./testfloat/testfloat_gen ${TEST} -tininessafter -rmin -seed 1000 -n 10000000 -level $(LEVEL) > testbench/test_rdn.txt 
 	echo "${TEST} RUP"
-	./testfloat/testfloat_gen ${TEST} -tininessafter -rmax -seed 1000 -level $(LEVEL) > testbench/test_rup.txt
+	./testfloat/testfloat_gen ${TEST} -tininessafter -rmax -seed 1000 -n 10000000 -level $(LEVEL) > testbench/test_rup.txt
 	echo "${TEST} RTZ"
-	./testfloat/testfloat_gen ${TEST} -tininessafter -rminMag -seed 1000 -level $(LEVEL) > testbench/test_rtz.txt
+	./testfloat/testfloat_gen ${TEST} -tininessafter -rminMag -seed 1000 -n 10000000 -level $(LEVEL) > testbench/test_rtz.txt
 	echo "${TEST} RNE"
-	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_even -seed 1000 -level $(LEVEL) > testbench/test_rne.txt
+	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_even -seed 1000 -n 10000000 -level $(LEVEL) > testbench/test_rne.txt
 	echo "${TEST} RMM"
-	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_maxMag -seed 1000 -level $(LEVEL) > testbench/test_rmm.txt
+	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_maxMag -seed 1000 -n 10000000 -level $(LEVEL) > testbench/test_rmm.txt
+	echo $(date) > gen_test
 
 questa_sim:
 	if [ -d "work" ]; then  vdel -lib work -all; fi
 	vlib work
 	vlog -sv -work work -f src.args
-	vlog -sv -work work testbench/tb.sv
-	clear
-	vsim -t 1ps -L work -voptargs="+acc" tb -do "do wave_fma.do; run -all; exit"
+	vlog -sv -work work +incdir+/home/shaheer/Desktop/pakfpu/src testbench/tb.sv
+	vsim -t 1ps -L work -voptargs="+acc" tb -do "do wave_div_tb.do; run -all; exit"
 	
 verilator_sim:
 	echo "Compiling Testbench"
@@ -32,6 +32,7 @@ verilator_sim:
 	--timescale-override 1ns/10ps \
 	-sv --top-module tb \
 	--cc \
+	+incdir+/home/shaheer/Desktop/pakfpu/src \
 	-f src.args \
 	testbench/tb.sv \
 	--exe testbench/main.cpp
@@ -66,3 +67,7 @@ clean:
 	rm -rf testbench/*.txt
 	rm -rf work
 	rm -rf transcript *.wlf
+	rm -rf *.txt
+	rm -rf obj_dir
+	rm -rf *.vcd
+	rm -rf gen_test
