@@ -26,9 +26,13 @@ A FPU developed for the open-source community. The FPU is IEEE-754 compliant and
 The latencies of the operations are shown below:
 |Operation|Latency|
 |---|---|
-|Add| 1  |
-|Sub| 1  |
-|Mul| 1  |
+|Add/Sub/Mul| 1  |
+|Convert| 1  |
+|Compare| 1  |
+|Sign Injection| 1  |
+|Fused| 2  |
+|Div| 30  |
+|Sqrt| 27  |
 
 The area and fmax (de1soc fpga and TSMC 65nm) are listed below:
 |Operation|Area|Frequency|
