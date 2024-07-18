@@ -10,4 +10,5 @@
 ../src/int_div.sv
 ../src/int_sqrt.sv
 ../src/fp_div.sv
+../src/fp_sqrt.sv
 ../src/lzc.sv
