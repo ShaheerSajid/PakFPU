@@ -19,7 +19,7 @@ module fp_sqrt
     start_i,
     rnd_i,
     done_o,
-    urnd_result_o,
+    urnd_result_o
 );
 `include "fp_class.sv"
 

@@ -21,7 +21,7 @@ module fp_div
     rnd_i,
     done_o,
     urnd_result_o,
-    divide_by_zero,
+    divide_by_zero
 
 );
 `include "fp_class.sv"

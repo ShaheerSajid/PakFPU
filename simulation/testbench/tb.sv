@@ -4,6 +4,10 @@ module tb
 `ifdef VERILATOR
 (
 
+    input clk,
+    input rst,
+    input start,
+    output valid,
     input [63:0] opA,
     input [63:0] opB,
     input [63:0] opC,
