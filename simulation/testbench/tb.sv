@@ -77,14 +77,14 @@ initial begin
           #10;
           start = 0;
           while(!valid) #10;
-          #10;
+        //   #10;
           test_cnt = test_cnt + 1;
           if(exp_res != result || flags_o != exc)
           begin
-              $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b", opA,opB,opC, exp_res,result,exc,flags_o);
+              $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b %h", opA,opB,opC, exp_res,result,exc,flags_o, fp_sqrt_inst.mant_rem);
               //if(exp_res == 32'h00000000)
               //if(err_cnt == 0)
-              $stop();
+            //   $stop();
               err_cnt = err_cnt + 1;
           end
         end

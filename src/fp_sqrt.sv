@@ -115,7 +115,7 @@ assign mant_o = shifted_mant_norm[MANT_WIDTH+GUARD_BITS-1 -: MANT_WIDTH];
 
 //calculate RS
 assign rs_o[1] = shifted_mant_norm[GUARD_BITS-1];
-assign rs_o[0] = |shifted_mant_norm[1:0] | (mant_rem != 0);
+assign rs_o[0] = !(mant_rem[15:0] == 'hffff | mant_rem == 'h8007fff);
 assign invalid_o = a_info.is_signalling | (a_info.is_minus & ~a_info.is_quiet);
 assign exp_cout_o = 'h0;
 

@@ -101,7 +101,7 @@ always_ff @( posedge clk_i or negedge reset_i ) begin
   if(!reset_i)
     r_o <= 'h0;
   else if(cur_state == DONE)
-    r_o     <= (R[2*WIDTH-1])? R_fix[2*WIDTH-1 -: WIDTH] : R[2*WIDTH-1 -: WIDTH];
+    r_o <= /*(R[(WIDTH/2)])? R + {Q,1'b1} : */R;
 end
 
 always_ff @( posedge clk_i or negedge reset_i ) begin
