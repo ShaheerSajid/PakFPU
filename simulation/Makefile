@@ -19,8 +19,8 @@ questa_sim:
 	if [ -d "work" ]; then  vdel -lib work -all; fi
 	vlib work
 	vlog -sv -work work -f src.args
-	vlog -sv -work work +incdir+/home/shaheer/Desktop/pakfpu/src testbench/tb.sv
-	vsim -c -t 1ps -L work -voptargs="+acc" tb -do "do wave.do; run -all; exit"
+	vlog -sv -work work +incdir+/home/shaheer/Documents/pakfpu/src testbench/tb.sv
+	vsim -t 1ps -L work -voptargs="+acc" tb -do "do wave.do; run -all; exit"
 	
 verilator_sim:
 	echo "Compiling Testbench"
@@ -32,7 +32,7 @@ verilator_sim:
 	--timescale-override 1ns/10ps \
 	-sv --top-module tb \
 	--cc \
-	+incdir+/home/shaheer/Desktop/pakfpu/src \
+	+incdir+/home/shaheer/Documents/pakfpu/src \
 	-f src.args \
 	testbench/tb.sv \
 	--exe testbench/main.cpp
