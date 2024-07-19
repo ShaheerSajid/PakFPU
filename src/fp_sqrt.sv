@@ -79,6 +79,7 @@ begin
 end
 
 logic [MANT_WIDTH + GUARD_BITS: 0] mant_sqrt;
+logic [MANT_WIDTH + GUARD_BITS + 1: 0] mant_rem;
 
 int_sqrt #(.WIDTH(2*MANT_WIDTH+4+GUARD_BITS+1)) int_sqrt_inst
 (
@@ -87,13 +88,13 @@ int_sqrt #(.WIDTH(2*MANT_WIDTH+4+GUARD_BITS+1)) int_sqrt_inst
   .start_i(start_i),
   .n_i({2'b0,a_info.is_normal, a_decoded.mant,{MANT_WIDTH+1+GUARD_BITS+1{1'b0}}} << a_decoded.exp[0]), 
   .q_o(mant_sqrt),
-  .r_o(), 
+  .r_o(mant_rem), 
   .valid_o(done_o)
 );
 
 assign urpr_s = a_decoded.sign;
 assign urpr_exp = (a_decoded.exp >> 1) + ((BIAS - 1)/2) + a_decoded.exp[0];
-assign urpr_mant = mant_sqrt << GUARD_BITS;
+assign urpr_mant = mant_sqrt;
 
 //normalize
 //added cout and sticky bit
@@ -107,14 +108,16 @@ lzc #(.WIDTH(MANT_WIDTH+GUARD_BITS+1)) lzc_inst
     .zero_o()
 );
 
-assign shifted_mant_norm = urpr_mant[MANT_WIDTH+GUARD_BITS]? urpr_mant : urpr_mant << shamt;
+assign shifted_mant_norm = urpr_mant[MANT_WIDTH+GUARD_BITS]? urpr_mant[MANT_WIDTH+GUARD_BITS : 0] : urpr_mant << shamt;
 assign sign_o = urpr_s;
 assign exp_o = urpr_exp;
 assign mant_o = shifted_mant_norm[MANT_WIDTH+GUARD_BITS-1 -: MANT_WIDTH];
 
 //calculate RS
-
-assign invalid_o = a_info.is_signalling | a_info.is_minus;
+assign rs_o[1] = shifted_mant_norm[GUARD_BITS-1];
+assign rs_o[0] = |shifted_mant_norm[1:0] | (mant_rem != 0);
+assign invalid_o = a_info.is_signalling | (a_info.is_minus & ~a_info.is_quiet);
+assign exp_cout_o = 'h0;
 
 assign urnd_result_o.u_result =  result_o;
 assign urnd_result_o.rs =  rs_o;

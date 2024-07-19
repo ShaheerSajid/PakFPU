@@ -31,7 +31,7 @@ state cur_state, nxt_state;
 always_comb begin
   case(cur_state)
     IDLE: nxt_state = start_i? RUN : IDLE;
-    RUN:  nxt_state = (run_cnt == 3)? DONE : RUN;
+    RUN:  nxt_state = (run_cnt == 0)? DONE : RUN;
     DONE: nxt_state = IDLE;
     default: nxt_state = IDLE;
   endcase

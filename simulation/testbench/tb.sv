@@ -212,14 +212,14 @@ fp_rnd #(.FP_FORMAT(FP32))fp_rnd_inst
 
 
 assign result = rnd_result.result;
-// assign flags_o = rnd_result.flags;
+assign flags_o = rnd_result.flags;
 
 //div settings
-assign flags_o.NV = rnd_result.flags.NV;
-assign flags_o.DZ = divide_by_zero;
-assign flags_o.OF = rnd_result.flags.OF;
-assign flags_o.UF = rnd_result.flags.UF;
-assign flags_o.NX = rnd_result.flags.NX;
+// assign flags_o.NV = rnd_result.flags.NV;
+// assign flags_o.DZ = divide_by_zero;
+// assign flags_o.OF = rnd_result.flags.OF;
+// assign flags_o.UF = rnd_result.flags.UF;
+// assign flags_o.NX = rnd_result.flags.NX;
 
 //// fma settings
 // logic fma_uf_fix;
