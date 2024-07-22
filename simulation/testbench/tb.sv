@@ -63,10 +63,10 @@ logic mul_uround_out;
 logic divide_by_zero;
 
 initial begin
-    outfile0=$fopen("testbench/test_rdn.txt","r");
+    outfile0=$fopen("testbench/test_rtz.txt","r");
     err_cnt = 0;
     test_cnt = 0;
-    rnd = RDN;
+    rnd = RTZ;
     clk = 0;
     rst = 0;
     start = 0;
@@ -76,7 +76,7 @@ initial begin
         //$fscanf(outfile0,"%h %h %h %h %h\n",opA,opB,opC, exp_res,exc);
         //$fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
         $fscanf(outfile0,"%h %h %h\n",opA,exp_res,exc);
-        if(opA[30 -: 8] != 0) begin
+        // if(opA[30 -: 8] == 0) begin
           start = 1;
           #10;
           start = 0;
@@ -85,12 +85,15 @@ initial begin
           test_cnt = test_cnt + 1;
           if(exp_res != result || flags_o != exc)
           begin
-              $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b %h", opA,opB,opC, exp_res,result,exc,flags_o, fp_sqrt_inst.mant_rem);
+              $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b %h", opA,opB,opC, exp_res,result,exc,flags_o, fp_sqrt_inst.exp_adj[0]);
               //if(exp_res == 32'h00000000)
               //if(err_cnt == 0)
-            //   $stop();
+              $stop();
               err_cnt = err_cnt + 1;
-          end
+        //   end
+        //   else 
+        //   $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b %h", opA,opB,opC, exp_res,result,exc,flags_o, fp_sqrt_inst.exp_adj[0]);
+
         end
     end
     $display("Total Errors = %d/%d\t (%0.2f%%)", err_cnt, test_cnt, err_cnt*100.0/test_cnt);

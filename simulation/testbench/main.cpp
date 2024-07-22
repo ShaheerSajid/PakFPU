@@ -153,8 +153,8 @@ int main(int argc, char **argv)
 		exp_res = hex_to_int_32(vals[1]);
 		exc = hex_to_int_8(vals[2]);
 
-		if (((a & 0x7F800000) != 0x00000000))
-		{
+		// if (((a & 0x7F800000) == 0x00000000))
+		// {
 			test_cnt++;
 			tb->opA = a;
 			tb->opB = b;
@@ -195,7 +195,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "%016lx %016lx %016lx Expected=%016lx Actual=%016lx Ac.Flags=%d Exp.Flags=%d\n", a, b, c, exp_res, actual_res, tb->flags_o, exc);
 				err_cnt++;
 			}
-		}
+		// }
 	}
 	fprintf(stdout, "Total Errors = %d/%d\t (%0.2f%%)\n", err_cnt, test_cnt, err_cnt * 100.0 / test_cnt);
 	fclose(fp);

@@ -65,7 +65,7 @@ begin
         result_o.mant = {1'b1, a_decoded.mant[MANT_WIDTH-2:0]};
         result_o.exp = a_decoded.exp;
     end
-    else if(a_info.is_minus)
+    else if(a_info.is_minus && !(a_info.is_zero))
         result_o = R_IND;
     else if(a_info.is_normal || a_info.is_subnormal)
         begin
@@ -81,19 +81,33 @@ end
 logic [MANT_WIDTH + GUARD_BITS: 0] mant_sqrt;
 logic [MANT_WIDTH + GUARD_BITS + 1: 0] mant_rem;
 
+//calculate shift
+logic [$clog2(FP_WIDTH)-1:0] shamt_a;
+lzc #(.WIDTH(MANT_WIDTH+1)) lzc_inst_0
+(
+    .a_i({a_info.is_normal, a_decoded.mant}),
+    .cnt_o(shamt_a),
+    .zero_o()
+);
+
+logic [$clog2(FP_WIDTH)-1:0] shamt_val;
+logic [EXP_WIDTH+1:0] exp_adj;
+assign exp_adj = a_decoded.exp - shamt_a;
+assign shamt_val = a_info.is_normal? a_decoded.exp[0] : exp_adj[0]? shamt_a :shamt_a + 1;
+
 int_sqrt #(.WIDTH(2*MANT_WIDTH+4+GUARD_BITS+1)) int_sqrt_inst
 (
   .clk_i(clk_i),
   .reset_i(reset_i),
   .start_i(start_i),
-  .n_i({2'b0,a_info.is_normal, a_decoded.mant,{MANT_WIDTH+1+GUARD_BITS+1{1'b0}}} << a_decoded.exp[0]), 
+  .n_i({2'b0,a_info.is_normal, a_decoded.mant,{MANT_WIDTH+1+GUARD_BITS+1{1'b0}}} << shamt_val), 
   .q_o(mant_sqrt),
   .r_o(mant_rem), 
   .valid_o(done_o)
 );
 
 assign urpr_s = a_decoded.sign;
-assign urpr_exp = (a_decoded.exp >> 1) + ((BIAS - 1)/2) + a_decoded.exp[0];
+assign urpr_exp = (exp_adj >>> 1) + ((BIAS - 1)/2) + (a_info.is_normal? a_decoded.exp[0] : 1'b1);
 assign urpr_mant = mant_sqrt;
 
 //normalize
@@ -101,7 +115,7 @@ assign urpr_mant = mant_sqrt;
 logic [MANT_WIDTH + GUARD_BITS:0] shifted_mant_norm;
 //calculate shift
 logic [$clog2(FP_WIDTH)-1:0] shamt;
-lzc #(.WIDTH(MANT_WIDTH+GUARD_BITS+1)) lzc_inst
+lzc #(.WIDTH(MANT_WIDTH+GUARD_BITS+1)) lzc_inst_1
 (
     .a_i(urpr_mant),
     .cnt_o(shamt),
@@ -116,7 +130,7 @@ assign mant_o = shifted_mant_norm[MANT_WIDTH+GUARD_BITS-1 -: MANT_WIDTH];
 //calculate RS
 assign rs_o[1] = shifted_mant_norm[GUARD_BITS-1];
 assign rs_o[0] = !(mant_rem[15:0] == 'hffff | ((mant_rem & 'h8007fff) == 'h8007fff));
-assign invalid_o = a_info.is_signalling | (a_info.is_minus & ~a_info.is_quiet);
+assign invalid_o = a_info.is_signalling | (a_info.is_minus & ~(a_info.is_quiet | a_info.is_zero));
 assign exp_cout_o = 'h0;
 
 assign urnd_result_o.u_result =  result_o;
