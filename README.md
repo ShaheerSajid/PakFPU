@@ -1,6 +1,6 @@
 # Pakfpu
 
-A FPU developed at IC Design Lab in NUST for the community in Pakistan. The FPU is IEEE-754 compliant and verified using Berkely TestFloat. Pakfpu is implemented in systemverilog and is fully paramterizable supporting single, double and quad precision. 32 and 64bit integer formats are also supported.
+A FPU developed for the open-source community. The FPU is IEEE-754 compliant and verified using Berkely TestFloat. Pakfpu is implemented in systemverilog and is fully paramterizable supporting single, double and quad precision. 32 and 64bit integer formats are also supported.
 
 ## Operations
 * Addition/ Subtraction
@@ -26,9 +26,13 @@ A FPU developed at IC Design Lab in NUST for the community in Pakistan. The FPU 
 The latencies of the operations are shown below:
 |Operation|Latency|
 |---|---|
-|   |   |
-|   |   |
-|   |   |
+|Add/Sub/Mul| 1  |
+|Convert| 1  |
+|Compare| 1  |
+|Sign Injection| 1  |
+|Fused| 2  |
+|Div| 50 (Optimization in-progress)  |
+|Sqrt| 27  |
 
 The area and fmax (de1soc fpga and TSMC 65nm) are listed below:
 |Operation|Area|Frequency|
