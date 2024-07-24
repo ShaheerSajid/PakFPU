@@ -74,8 +74,8 @@ initial begin
     rst = 1;
     while (! $feof(outfile0)) begin
         //$fscanf(outfile0,"%h %h %h %h %h\n",opA,opB,opC, exp_res,exc);
-        //$fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
-        $fscanf(outfile0,"%h %h %h\n",opA,exp_res,exc);
+        $fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
+        //$fscanf(outfile0,"%h %h %h\n",opA,exp_res,exc);
         // if(opA[30 -: 8] == 0) begin
           start = 1;
           #10;
@@ -85,7 +85,7 @@ initial begin
           test_cnt = test_cnt + 1;
           if(exp_res != result || flags_o != exc)
           begin
-              $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b %h", opA,opB,opC, exp_res,result,exc,flags_o, fp_sqrt_inst.exp_adj[0]);
+              $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b", opA,opB,opC, exp_res,result,exc,flags_o);
               //if(exp_res == 32'h00000000)
               //if(err_cnt == 0)
               $stop();
@@ -219,6 +219,8 @@ fp_rnd #(.FP_FORMAT(FP32))fp_rnd_inst
 
 
 assign result = rnd_result.result;
+
+
 assign flags_o = rnd_result.flags;
 
 //div settings

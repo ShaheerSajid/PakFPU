@@ -92,8 +92,9 @@ lzc #(.WIDTH(MANT_WIDTH+1)) lzc_inst_0
 
 logic [$clog2(FP_WIDTH)-1:0] shamt_val;
 logic [EXP_WIDTH+1:0] exp_adj;
-assign exp_adj = a_decoded.exp - shamt_a;
-assign shamt_val = a_info.is_normal? a_decoded.exp[0] : exp_adj[0]? shamt_a :shamt_a + 1;
+assign exp_adj = (a_decoded.exp | a_info.is_subnormal) - (shamt_a);
+// assign shamt_val = exp_adj[0] | shamt_a;
+assign shamt_val = shamt_a | a_decoded.exp[0] | a_info.is_subnormal;
 
 int_sqrt #(.WIDTH(2*MANT_WIDTH+4+GUARD_BITS+1)) int_sqrt_inst
 (
@@ -107,22 +108,13 @@ int_sqrt #(.WIDTH(2*MANT_WIDTH+4+GUARD_BITS+1)) int_sqrt_inst
 );
 
 assign urpr_s = a_decoded.sign;
-assign urpr_exp = (exp_adj >>> 1) + ((BIAS - 1)/2) + (a_info.is_normal? a_decoded.exp[0] : 1'b1);
+assign urpr_exp = (exp_adj >>> 1) + ((BIAS - 1)/2) + (exp_adj[0]);
 assign urpr_mant = mant_sqrt;
 
 //normalize
-//added cout and sticky bit
 logic [MANT_WIDTH + GUARD_BITS:0] shifted_mant_norm;
-//calculate shift
-logic [$clog2(FP_WIDTH)-1:0] shamt;
-lzc #(.WIDTH(MANT_WIDTH+GUARD_BITS+1)) lzc_inst_1
-(
-    .a_i(urpr_mant),
-    .cnt_o(shamt),
-    .zero_o()
-);
 
-assign shifted_mant_norm = urpr_mant[MANT_WIDTH+GUARD_BITS]? urpr_mant[MANT_WIDTH+GUARD_BITS : 0] : urpr_mant << shamt;
+assign shifted_mant_norm = urpr_mant[MANT_WIDTH+GUARD_BITS]? urpr_mant[MANT_WIDTH+GUARD_BITS : 0] : urpr_mant << 1'b1;
 assign sign_o = urpr_s;
 assign exp_o = urpr_exp;
 assign mant_o = shifted_mant_norm[MANT_WIDTH+GUARD_BITS-1 -: MANT_WIDTH];
