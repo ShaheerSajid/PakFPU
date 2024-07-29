@@ -148,22 +148,45 @@ int main(int argc, char **argv)
 		// exp_res = hex_to_int_64(vals[1]);
 		// exc = hex_to_int_8(vals[2]);
 
-		b = hex_to_int_32(vals[1]);
-		c = hex_to_int_32(vals[2]);
-		exp_res = hex_to_int_32(vals[3]);
-		exc = hex_to_int_8(vals[4]);
+		// b = hex_to_int_32(vals[1]);
+		// c = hex_to_int_32(vals[2]);
+		exp_res = hex_to_int_32(vals[1]);
+		exc = hex_to_int_8(vals[2]);
 
-		// if (((exp_res & 0x7F700000) != 0x7F700000))
+		// if (((a & 0x7F800000) == 0x00000000))
 		// {
 			test_cnt++;
 			tb->opA = a;
 			tb->opB = b;
 			tb->opC = c;
 			tb->rnd = rm;
-			tb->eval();
 
+			tb->rst = 1;
+			tb->clk = 1;
+			tb->start = 1;
+			tb->eval();
 			m_trace->dump(sim_time);
 			sim_time++;
+			tb->clk = 0;
+			tb->eval();
+			m_trace->dump(sim_time);
+			sim_time++;
+			tb->clk = 1;
+			tb->eval();
+			tb->start = 0;
+			m_trace->dump(sim_time);
+			sim_time++;
+
+			while(!tb->valid) {
+				tb->clk = 0;
+				tb->eval();
+				m_trace->dump(sim_time);
+				sim_time++;
+				tb->clk = 1;
+				tb->eval();
+				m_trace->dump(sim_time);
+				sim_time++;
+			}
 
 			actual_res = tb->result;
 			if (exp_res != actual_res || tb->flags_o != exc)

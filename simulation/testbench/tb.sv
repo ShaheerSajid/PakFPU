@@ -4,6 +4,10 @@ module tb
 `ifdef VERILATOR
 (
 
+    input clk,
+    input rst,
+    input start,
+    output valid,
     input [63:0] opA,
     input [63:0] opB,
     input [63:0] opC,
@@ -59,10 +63,10 @@ logic mul_uround_out;
 logic divide_by_zero;
 
 initial begin
-    outfile0=$fopen("testbench/test_rne.txt","r");
+    outfile0=$fopen("testbench/test_rtz.txt","r");
     err_cnt = 0;
     test_cnt = 0;
-    rnd = RNE;
+    rnd = RTZ;
     clk = 0;
     rst = 0;
     start = 0;
@@ -72,26 +76,25 @@ initial begin
         //$fscanf(outfile0,"%h %h %h %h %h\n",opA,opB,opC, exp_res,exc);
         $fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
         //$fscanf(outfile0,"%h %h %h\n",opA,exp_res,exc);
-        //if(opA[30 -: 8] != 0 && opB[30 -: 8] == 0) begin
+        // if(opA[30 -: 8] == 0) begin
           start = 1;
           #10;
           start = 0;
           while(!valid) #10;
-          #10;
+        //   #10;
           test_cnt = test_cnt + 1;
           if(exp_res != result || flags_o != exc)
           begin
               $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b", opA,opB,opC, exp_res,result,exc,flags_o);
-              $display("Exp=%d urpr.e=%d sh_a=%d sh_b=%d urpr.m=%b", exp_res[30 -:8],fp_div_inst.urpr_exp,fp_div_inst.shamt_a, fp_div_inst.shamt_b,fp_div_inst.urpr_mant[MANT_WIDTH+1]);
-              
-              
-              
               //if(exp_res == 32'h00000000)
               //if(err_cnt == 0)
               $stop();
               err_cnt = err_cnt + 1;
-          end
-        //end
+        //   end
+        //   else 
+        //   $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b %h", opA,opB,opC, exp_res,result,exc,flags_o, fp_sqrt_inst.exp_adj[0]);
+
+        end
     end
     $display("Total Errors = %d/%d\t (%0.2f%%)", err_cnt, test_cnt, err_cnt*100.0/test_cnt);
     $fclose(outfile0);
@@ -139,19 +142,31 @@ always #5 clk = ~clk;
 //     .urnd_result_o(urnd_result)
 // );
 
-fp_div #(.FP_FORMAT(FP32))fp_div_inst
-(
+// fp_div #(.FP_FORMAT(FP32))fp_div_inst
+// (
 
+//     .clk_i(clk),
+//     .reset_i(rst),
+//     .a_i(opA),
+//     .b_i(opB),
+//     .start_i(start),
+//     .rnd_i(rnd),
+
+//     .urnd_result_o(urnd_result),
+//     .divide_by_zero(divide_by_zero),
+//     .done_o(valid)
+// );
+
+
+fp_sqrt #(.FP_FORMAT(FP32)) fp_sqrt_inst
+( 
     .clk_i(clk),
     .reset_i(rst),
     .a_i(opA),
-    .b_i(opB),
     .start_i(start),
     .rnd_i(rnd),
-
-    .urnd_result_o(urnd_result),
-    .divide_by_zero(divide_by_zero),
-    .done_o(valid)
+    .done_o(valid),
+    .urnd_result_o(urnd_result)
 );
 
 // fp_mul #(.FP_FORMAT(FP32))fp_mul_inst
@@ -201,26 +216,32 @@ fp_rnd #(.FP_FORMAT(FP32))fp_rnd_inst
 //     .flags_o(flags_o)
 // );
 
-logic fma_uf_fix;
-logic fma_uf_fix1;
-assign fma_uf_fix =  (rnd_result.result.exp == 0) & (|urnd_result.rs);
-assign fma_uf_fix1 = (urnd_result.u_result.exp == 0) & (rnd_result.result.exp == 1) & mul_uround_out;
+
 
 assign result = rnd_result.result;
-// assign flags_o = rnd_result.flags;
-//fma settings
+
+
+assign flags_o = rnd_result.flags;
+
+//div settings
+// assign flags_o.NV = rnd_result.flags.NV;
+// assign flags_o.DZ = divide_by_zero;
+// assign flags_o.OF = rnd_result.flags.OF;
+// assign flags_o.UF = rnd_result.flags.UF;
+// assign flags_o.NX = rnd_result.flags.NX;
+
+//// fma settings
+// logic fma_uf_fix;
+// logic fma_uf_fix1;
+// assign fma_uf_fix =  (rnd_result.result.exp == 0) & (|urnd_result.rs);
+// assign fma_uf_fix1 = (urnd_result.u_result.exp == 0) & (rnd_result.result.exp == 1) & mul_uround_out;
 // assign flags_o.NV = rnd_result.flags.NV;
 // assign flags_o.DZ = rnd_result.flags.DZ;
 // assign flags_o.OF = rnd_result.flags.OF | mul_ovf;
 // assign flags_o.UF = mul_uf? fma_uf_fix | fma_uf_fix1 : rnd_result.flags.UF;
 // assign flags_o.NX = mul_uf? (|urnd_result.rs) : rnd_result.flags.NX | mul_ovf;
 
-//div settings
-assign flags_o.NV = rnd_result.flags.NV;
-assign flags_o.DZ = divide_by_zero;
-assign flags_o.OF = rnd_result.flags.OF;
-assign flags_o.UF = rnd_result.flags.UF;
-assign flags_o.NX = rnd_result.flags.NX;
+
 
 /*
 fp_cmp fp_cmp_inst
