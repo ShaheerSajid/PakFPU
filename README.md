@@ -7,7 +7,7 @@ A FPU developed for the open-source community. The FPU is IEEE-754 compliant and
 * Multiplication
 * Fused multiply and add
 * Division
-* Square root
+* Square root (in-progress)
 * Min/Max
 * Comparison
 * Sign Injection
