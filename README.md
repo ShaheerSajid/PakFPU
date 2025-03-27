@@ -1,13 +1,13 @@
 # Pakfpu
 
-A FPU developed for the open-source community. The FPU is IEEE-754 compliant and verified using Berkely TestFloat. Pakfpu is implemented in systemverilog and is fully paramterizable supporting single, double and quad precision. 32 and 64bit integer formats are also supported.
+A FPU developed for the open-source community. The FPU is IEEE-754 compliant and verified using Berkely TestFloat. Pakfpu is implemented in systemverilog and is fully parameterizable supporting single, double and quad precision. 32 and 64bit integer formats are also supported. Please note that some operations do not support full parameterization yet. The top level is still under progress.
 
 ## Operations
 * Addition/ Subtraction
 * Multiplication
 * Fused multiply and add
 * Division
-* Square root (in-progress)
+* Square root
 * Min/Max
 * Comparison
 * Sign Injection
