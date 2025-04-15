@@ -9,6 +9,7 @@
 ../src/fp_fma.sv
 ../src/int_div.sv
 ../src/int_sqrt.sv
-../src/fp_div.sv
+../src/recip.sv
+../src/fp_div_v2.sv
 ../src/fp_sqrt.sv
 ../src/lzc.sv

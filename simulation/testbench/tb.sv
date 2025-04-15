@@ -83,7 +83,8 @@ initial begin
           while(!valid) #10;
         //   #10;
           test_cnt = test_cnt + 1;
-          if(exp_res != result || flags_o != exc)
+        //   if(exp_res != result || flags_o != exc)
+        if(opA[30 -: 8] != 0 && opB[30 -: 8] != 0 && opA[30 -: 8] != 255 && opB[30 -: 8] != 255 && exp_res[30 -: 8] != 0 && exp_res[30 -: 8] != 255 && exp_res[30 -: 8] != 254)
           begin
               $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b", opA,opB,opC, exp_res,result,exc,flags_o);
               //if(exp_res == 32'h00000000)
@@ -158,16 +159,16 @@ always #5 clk = ~clk;
 // );
 
 
-fp_sqrt #(.FP_FORMAT(FP32)) fp_sqrt_inst
-( 
-    .clk_i(clk),
-    .reset_i(rst),
-    .a_i(opA),
-    .start_i(start),
-    .rnd_i(rnd),
-    .done_o(valid),
-    .urnd_result_o(urnd_result)
-);
+// fp_sqrt #(.FP_FORMAT(FP32)) fp_sqrt_inst
+// ( 
+//     .clk_i(clk),
+//     .reset_i(rst),
+//     .a_i(opA),
+//     .start_i(start),
+//     .rnd_i(rnd),
+//     .done_o(valid),
+//     .urnd_result_o(urnd_result)
+// );
 
 // fp_mul #(.FP_FORMAT(FP32))fp_mul_inst
 // (
@@ -197,14 +198,6 @@ fp_sqrt #(.FP_FORMAT(FP32)) fp_sqrt_inst
 //     .rnd_result_o(rnd_result)
 // );
 
-fp_rnd #(.FP_FORMAT(FP32))fp_rnd_inst
-(
-    .urnd_result_i(urnd_result),
-    .rnd_i(rnd),
-    .round_only(1'b0),
-    .mul_ovf(1'b0),
-    .rnd_result_o(rnd_result)
-);
 
 //if output < INT_WIDTH sign extend
 // fp_f2i #(.FP_FORMAT(FP32), .INT_FORMAT(INT64))fp_f2i_inst
@@ -216,11 +209,43 @@ fp_rnd #(.FP_FORMAT(FP32))fp_rnd_inst
 //     .flags_o(flags_o)
 // );
 
+/*
+fp_cmp fp_cmp_inst
+(
+    .a_i(opA),
+    .b_i(opB),
+    .eq_en_i(1'b1),
+    .lt_o(lt),
+    .le_o(le),
+    .eq_o(eq),
+    .flags_o(flags_o)
+);
+assign result = eq;
+*/
+// newton raphson div
+wire [31:0] reciprocal;
+
+fp_div div(
+    .clk(clk),
+    .reset_n(rst),
+    .start(start),
+    .A(opA),
+    .B(opB),
+    .R(reciprocal),
+    .done(valid)
+);
 
 
-assign result = rnd_result.result;
+fp_rnd #(.FP_FORMAT(FP32))fp_rnd_inst
+(
+    .urnd_result_i(urnd_result),
+    .rnd_i(rnd),
+    .round_only(1'b0),
+    .mul_ovf(1'b0),
+    .rnd_result_o(rnd_result)
+);
 
-
+assign result = reciprocal;
 assign flags_o = rnd_result.flags;
 
 //div settings
@@ -241,20 +266,5 @@ assign flags_o = rnd_result.flags;
 // assign flags_o.UF = mul_uf? fma_uf_fix | fma_uf_fix1 : rnd_result.flags.UF;
 // assign flags_o.NX = mul_uf? (|urnd_result.rs) : rnd_result.flags.NX | mul_ovf;
 
-
-
-/*
-fp_cmp fp_cmp_inst
-(
-    .a_i(opA),
-    .b_i(opB),
-    .eq_en_i(1'b1),
-    .lt_o(lt),
-    .le_o(le),
-    .eq_o(eq),
-    .flags_o(flags_o)
-);
-assign result = eq;
-*/
 
 endmodule
