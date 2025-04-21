@@ -80,19 +80,24 @@ module fp_div (
 
     // Step 3: Perform iterations to refine X
     wire [63:0] recip_64;
-    recip uut (
+
+    recip #(
+        .Q_INT      (9),
+        .Q_FRAC     (23),
+        .ITERATIONS (3)
+    ) recip_inst (
         .clk(clk),
         .reset_n(reset_n),
         .start(start),
-        .X_in({X0[54:23],32'd0}),
-        .D_in({D_prime,32'd0}),
+        .X_in(X0[54:23]),
+        .D_in(D_prime),
         .reciprocal(recip_64),
         .done(done)
     );
-    assign reciprocal = recip_64[63-:32];
+    assign reciprocal = recip_64[32:4];
     // Step 4: Final result
     assign uexp_result = A_exponent - B_exponent + EXP_BIAS;
-    assign umant_res = A_mantissa * reciprocal;
+    assign umant_res = A_mantissa * {reciprocal,4'b0};
 
     wire [5:0] shamt;
     lzc #(.WIDTH(48)) lzc_inst

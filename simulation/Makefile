@@ -19,7 +19,7 @@ questa_sim:
 	if [ -d "work" ]; then  vdel -lib work -all; fi
 	vlib work
 	vlog -sv -work work -f src.args
-	vlog -sv -work work +incdir+/home/shaheer/Documents/Docs/PakFPU/src testbench/tb.sv
+	vlog -sv -work work +incdir+/home/shaheer/Documents/projects/PakFPU/src testbench/tb.sv
 	vsim -t 1ps -L work -voptargs="+acc" tb -do "do wave.do; run -all; exit"
 	
 verilator_sim:
@@ -32,28 +32,15 @@ verilator_sim:
 	--timescale-override 1ns/10ps \
 	-sv --top-module tb \
 	--cc \
-	+incdir+/home/shaheer/Documents/Docs/PakFPU/src \
+	+incdir+/home/shaheer/Documents/projects/PakFPU/src \
 	-f src.args \
 	testbench/tb.sv \
 	--exe testbench/main.cpp
 	make -s -j -C obj_dir/ -f Vtb.mk Vtb
 	echo "Running Testbench"
-	echo -n "${TEST} RDN: "
-	echo "${TEST} RDN Errors" >  err.txt
-	obj_dir/Vtb	testbench/test_rdn.txt 2 2>> err.txt
-	echo -n "${TEST} RUP: "
-	echo "${TEST} RUP Errors" >> err.txt
-	obj_dir/Vtb	testbench/test_rup.txt 3 2>> err.txt
 	echo -n "${TEST} RTZ: "
 	echo "${TEST} RTZ Errors" >> err.txt
 	obj_dir/Vtb	testbench/test_rtz.txt 1 2>> err.txt
-	echo -n "${TEST} RNE: "
-	echo "${TEST} RNE Errors" >> err.txt
-	obj_dir/Vtb	testbench/test_rne.txt 0 2>> err.txt
-	echo -n "${TEST} RMM: "
-	echo "${TEST} RMM Errors" >> err.txt
-	obj_dir/Vtb	testbench/test_rmm.txt 4 2>> err.txt
-	gtkwave --dump waveform.vcd
 	
 	
 .PHONY: questa

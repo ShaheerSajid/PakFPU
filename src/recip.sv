@@ -1,29 +1,38 @@
-module recip (
-    input  logic        clk,
-    input  logic        reset_n,
-    input  logic        start,         // Start pulse initiates computation
-    input  logic [63:0] X_in,          // Q9.55 initial guess
-    input  logic [63:0] D_in,          // Q9.55 divisor
-    output logic [63:0] reciprocal,    // Q9.55 reciprocal
-    output logic        done           // Result valid pulse
+module recip #(
+    parameter int Q_INT    = 9,      // Integer bits (including sign)
+    parameter int Q_FRAC   = 55,     // Fractional bits
+    parameter int ITERATIONS = 4,    // Number of Newton-Raphson iterations
+    parameter int Q_WIDTH  = Q_INT + Q_FRAC  // Total bit width
+) (
+    input  logic                clk,
+    input  logic                reset_n,
+    input  logic                start,         // Start pulse
+    input  logic [Q_WIDTH-1:0]  X_in,          // Initial guess (Qm.n)
+    input  logic [Q_WIDTH-1:0]  D_in,          // Divisor (Qm.n)
+    output logic [Q_WIDTH-1:0]  reciprocal,    // Reciprocal result
+    output logic                done           // Result valid pulse
 );
 
-// Fixed-point parameters
-localparam int Q_FRAC = 55;
-localparam int Q_INT  = 9;
-localparam int Q_WIDTH = 64;
+// -------------------------------------------------------------------------
+// Local Parameters and Signals
+// -------------------------------------------------------------------------
+localparam int PROD_WIDTH = 2*Q_WIDTH;  // Full multiplication width
 
 // Iteration control
-logic [1:0] iteration;  // 0-3 (4 iterations)
-logic [63:0] X, D;
+logic [$clog2(ITERATIONS)-1:0] iteration;  // Dynamic width based on ITERATIONS
+logic [Q_WIDTH-1:0] X, D;
 
-// 128-bit multiplication results
-logic [127:0] x_squared;
-logic [127:0] dx_squared;
+// Multiplication results (full precision)
+logic [PROD_WIDTH-1:0] x_squared;
+logic [PROD_WIDTH-1:0] dx_squared;
 
-// FSM logic
-enum logic {IDLE, BUSY} state;
+// FSM states
+typedef enum logic {IDLE, BUSY} state_t;
+state_t state;
 
+// -------------------------------------------------------------------------
+// Newton-Raphson Core Logic
+// -------------------------------------------------------------------------
 always_ff @(posedge clk or negedge reset_n) begin
     if (!reset_n) begin
         state       <= IDLE;
@@ -33,7 +42,7 @@ always_ff @(posedge clk or negedge reset_n) begin
         reciprocal  <= '0;
         done        <= '0;
     end else begin
-        done <= '0;  // Default done signal
+        done <= '0;  // Single-cycle pulse
 
         case (state)
             IDLE: begin
@@ -46,16 +55,16 @@ always_ff @(posedge clk or negedge reset_n) begin
             end
 
             BUSY: begin
-                // Pipeline Newton-Raphson: X_{n+1} = 2X_n - D*X_n²
-                x_squared = X * X;
-                dx_squared = D * x_squared[118:55];  // Align decimal points
+                // Pipeline calculations
+                x_squared  = X * X;  // Full precision multiply
+                dx_squared = D * x_squared[PROD_WIDTH-1:Q_FRAC];  // Align decimal
 
-                // Update calculation
-                X <= (X << 1) - dx_squared[118:55];  // Maintain Q9.55 format
+                // X_{n+1} = 2X_n - D*X_n² (maintain Qm.n format)
+                X <= (X << 1) - dx_squared[PROD_WIDTH-1:Q_FRAC];
                 iteration <= iteration + 1;
 
-                if (iteration == 3) begin
-                    reciprocal <= (X << 1) - dx_squared[118:55];
+                if (iteration == ITERATIONS-1) begin
+                    reciprocal <= (X << 1) - dx_squared[PROD_WIDTH-1:Q_FRAC];
                     done       <= 1'b1;
                     state      <= IDLE;
                 end
@@ -65,7 +74,6 @@ always_ff @(posedge clk or negedge reset_n) begin
 end
 
 endmodule
-
 
 
 // module recip (
