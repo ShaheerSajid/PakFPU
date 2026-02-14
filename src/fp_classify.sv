@@ -44,5 +44,6 @@ assign class_o[6] = a_info.is_normal    & !a_info.is_minus;
 assign class_o[7] = a_info.is_inf       & !a_info.is_minus;
 assign class_o[8] = a_info.is_signalling;
 assign class_o[9] = a_info.is_quiet;
+assign done_o = start_i;
 
 endmodule

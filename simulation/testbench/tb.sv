@@ -3,7 +3,6 @@ import fp_pkg::*;
 module tb
 `ifdef VERILATOR
 (
-
     input clk,
     input rst,
     input start,
@@ -15,255 +14,118 @@ module tb
     output [63:0] result,
     output status_t flags_o
 )
-`endif ;
-parameter fp_format_e FP_FORMAT = FP32;
+`endif
+;
 
-localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT);
-localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT);
-localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
-`include "fp_class.sv"
+parameter int unsigned FP_FORMAT_I = 0;
+parameter int unsigned INT_FORMAT_I = 0;
+parameter int unsigned OP_SEL_I = 2;
+parameter int unsigned OP_MODIFY_I = 0;
+
+localparam fp_format_e FP_FORMAT = fp_format_e'(FP_FORMAT_I);
+localparam int_format_e INT_FORMAT = int_format_e'(INT_FORMAT_I);
+localparam float_op_e OP_SEL = float_op_e'(OP_SEL_I);
+localparam logic [1:0] OP_MODIFY = OP_MODIFY_I[1:0];
+
+logic [63:0] dut_a;
+logic [63:0] dut_b;
+logic [63:0] dut_c;
+logic [63:0] dut_result;
+status_t dut_flags;
+logic dut_valid;
+logic dut_ready;
 
 `ifdef VERILATOR
-logic [1:0] rs;
-logic [63:0] u_result;
-uround_res_t urnd_result;
-round_res_t rnd_result;
-logic round_en;
-logic [1:0] exp_cout;
-logic invalid;
-logic lt,le,eq;
-logic round_only;
-logic mul_ovf;
-logic mul_uf;
-logic mul_uround_out;
-logic divide_by_zero;
+assign dut_a = opA;
+assign dut_b = opB;
+assign dut_c = opC;
+assign valid = dut_valid;
+assign result = dut_result;
+assign flags_o = dut_flags;
 `else
-logic [1:0] rs;
-logic [31:0] result;
-logic [31:0] u_result;
-uround_res_t urnd_result;
-round_res_t rnd_result;
-logic round_en;
-integer outfile0; 
-logic [31:0] opA,opB,opC,exp_res;
-logic [4:0] exc;
-integer err_cnt;
-integer test_cnt;
-roundmode_e rnd;
-logic [1:0] exp_cout;
-status_t flags_o;
 logic clk;
 logic rst;
 logic start;
 logic valid;
-logic round_only;
-logic mul_ovf;
-logic mul_uf;
-logic mul_uround_out;
-logic divide_by_zero;
+logic ready;
+logic [63:0] opA;
+logic [63:0] opB;
+logic [63:0] opC;
+logic [63:0] result;
+logic [63:0] exp_res;
+status_t flags_o;
+logic [4:0] exc;
+roundmode_e rnd;
+integer outfile0;
+integer err_cnt;
+integer test_cnt;
 
+assign dut_a = opA;
+assign dut_b = opB;
+assign dut_c = opC;
+assign result = dut_result;
+assign valid = dut_valid;
+assign flags_o = dut_flags;
+`endif
+
+fp_top #(
+    .FP_FORMAT(FP_FORMAT),
+    .INT_FORMAT(INT_FORMAT)
+) dut
+(
+    .clk_i(clk),
+    .rst_i(rst),
+    .start_i(start),
+    .ready_o(dut_ready),
+    .a_i(dut_a),
+    .b_i(dut_b),
+    .c_i(dut_c),
+    .rnd_i(rnd),
+    .op_i(OP_SEL),
+    .op_modify_i(OP_MODIFY),
+    .result_o(dut_result),
+    .valid_o(dut_valid),
+    .flags_o(dut_flags)
+);
+
+`ifndef VERILATOR
 initial begin
-    outfile0=$fopen("testbench/test_rtz.txt","r");
+    outfile0 = $fopen("testbench/test_rtz.txt", "r");
     err_cnt = 0;
     test_cnt = 0;
     rnd = RTZ;
     clk = 0;
     rst = 0;
     start = 0;
-    repeat(5) #10;
+    opC = '0;
+
+    repeat (5) #10;
     rst = 1;
-    while (! $feof(outfile0)) begin
-        //$fscanf(outfile0,"%h %h %h %h %h\n",opA,opB,opC, exp_res,exc);
-        $fscanf(outfile0,"%h %h %h %h\n",opA,opB, exp_res,exc);
-        //$fscanf(outfile0,"%h %h %h\n",opA,exp_res,exc);
-        // if(opA[30 -: 8] == 0) begin
-        if(opA[30 -: 8] != 0 && opB[30 -: 8] != 0 && opA[30 -: 8] != 255 && opB[30 -: 8] != 255 && exp_res[30 -: 8] != 0 && exp_res[30 -: 8] != 255 && exp_res[30 -: 8] != 254) begin
-          start = 1;
-          #10;
-          start = 0;
-          while(!valid) #10;
-        //   #10;
-          test_cnt = test_cnt + 1;
-        if(exp_res != result /*|| flags_o != exc*/)
-          begin
-              $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b", opA,opB,opC, exp_res,result,exc,flags_o);
-              //if(exp_res == 32'h00000000)
-              //if(err_cnt == 0)
-              $stop();
-              err_cnt = err_cnt + 1;
-          end
-        //   else 
-        //   $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b %h", opA,opB,opC, exp_res,result,exc,flags_o, fp_sqrt_inst.exp_adj[0]);
+
+    while (!$feof(outfile0)) begin
+        // Expected format: A B EXPECTED FLAGS
+        $fscanf(outfile0, "%h %h %h %h\n", opA, opB, exp_res, exc);
+
+        start = 1'b1;
+        #10;
+        start = 1'b0;
+        while (!valid) #10;
+
+        test_cnt = test_cnt + 1;
+        if (exp_res != result || flags_o != exc) begin
+            $display("%h %h %h Expected=%h Actual=%h Ex.flags=%b Ac.flags=%b",
+                     opA, opB, opC, exp_res, result, exc, flags_o);
+            err_cnt = err_cnt + 1;
+            $stop();
         end
     end
-    $display("Total Errors = %d/%d\t (%0.2f%%)", err_cnt, test_cnt, err_cnt*100.0/test_cnt);
+
+    $display("Total Errors = %d/%d\t (%0.2f%%)", err_cnt, test_cnt, err_cnt * 100.0 / test_cnt);
     $fclose(outfile0);
     $stop();
 end
+
 always #5 clk = ~clk;
 `endif
-
-
-// fp_fma  #(.FP_FORMAT(FP32)) fp_fma_inst
-// (
-//     .a_i(opA),
-//     .b_i(opB),
-//     .c_i(32'h0),
-//     .sub_i(rnd != RDN),
-//     .rnd_i(rnd),
-//     .round_only(round_only),
-//     .mul_ovf(mul_ovf),
-//     .mul_uf(mul_uf),
-//     .mul_uround_out(mul_uround_out),
-//     .urnd_result_o(urnd_result)
-// );
-
-// fp_fma  #(.FP_FORMAT(FP32)) fp_fma_inst
-// (
-//     .a_i(opA),
-//     .b_i(opB),
-//     .c_i(opC),
-//     .sub_i(1'b0),
-//     .rnd_i(rnd),
-//     .round_only(round_only),
-//     .mul_ovf(mul_ovf),
-//     .mul_uf(mul_uf),
-//     .mul_uround_out(mul_uround_out),
-//     .urnd_result_o(urnd_result)
-// );
-
-// fp_add  #(.FP_FORMAT(FP32))fp_add_inst
-// (
-//     .a_i(opA),
-//     .b_i(opB),
-//     .sub_i(1'b0),
-//     .rnd_i(rnd),
-
-//     .urnd_result_o(urnd_result)
-// );
-
-// fp_div #(.FP_FORMAT(FP32))fp_div_inst
-// (
-
-//     .clk_i(clk),
-//     .reset_i(rst),
-//     .a_i(opA),
-//     .b_i(opB),
-//     .start_i(start),
-//     .rnd_i(rnd),
-
-//     .urnd_result_o(urnd_result),
-//     .divide_by_zero(divide_by_zero),
-//     .done_o(valid)
-// );
-
-
-// fp_sqrt #(.FP_FORMAT(FP32)) fp_sqrt_inst
-// ( 
-//     .clk_i(clk),
-//     .reset_i(rst),
-//     .a_i(opA),
-//     .start_i(start),
-//     .rnd_i(rnd),
-//     .done_o(valid),
-//     .urnd_result_o(urnd_result)
-// );
-
-// fp_mul #(.FP_FORMAT(FP32))fp_mul_inst
-// (
-//     .a_i(opA),
-//     .b_i(opB),
-
-//     .urnd_result_o(urnd_result)
-// );
-
-//if input < INT_WIDTH sign extend
-// fp_i2f #(.FP_FORMAT(FP32), .INT_FORMAT(INT32))fp_i2f_inst
-// (
-//     .a_i(opA),
-//     .signed_i(1'b1),
-//     .urnd_result_o(urnd_result)
-// );
-
-// d2f d2f_inst
-// (
-//     .a_i(opA),
-//     .urnd_result_o(urnd_result)
-// );
-
-// f2d f2d_inst
-// (
-//     .a_i(opA),
-//     .rnd_result_o(rnd_result)
-// );
-
-
-//if output < INT_WIDTH sign extend
-// fp_f2i #(.FP_FORMAT(FP32), .INT_FORMAT(INT64))fp_f2i_inst
-// (
-//     .a_i(opA),
-//     .signed_i(1'b1),
-//     .rnd_i(rnd),
-//     .result_o(result),
-//     .flags_o(flags_o)
-// );
-
-/*
-fp_cmp fp_cmp_inst
-(
-    .a_i(opA),
-    .b_i(opB),
-    .eq_en_i(1'b1),
-    .lt_o(lt),
-    .le_o(le),
-    .eq_o(eq),
-    .flags_o(flags_o)
-);
-assign result = eq;
-*/
-// newton raphson div
-wire [31:0] reciprocal;
-
-fp_div div(
-    .clk(clk),
-    .reset_n(rst),
-    .start(start),
-    .A(opA),
-    .B(opB),
-    .R(reciprocal),
-    .done(valid)
-);
-
-
-fp_rnd #(.FP_FORMAT(FP32))fp_rnd_inst
-(
-    .urnd_result_i(urnd_result),
-    .rnd_i(rnd),
-    .round_only(1'b0),
-    .mul_ovf(1'b0),
-    .rnd_result_o(rnd_result)
-);
-
-assign result = reciprocal;
-assign flags_o = rnd_result.flags;
-
-//div settings
-// assign flags_o.NV = rnd_result.flags.NV;
-// assign flags_o.DZ = divide_by_zero;
-// assign flags_o.OF = rnd_result.flags.OF;
-// assign flags_o.UF = rnd_result.flags.UF;
-// assign flags_o.NX = rnd_result.flags.NX;
-
-//// fma settings
-// logic fma_uf_fix;
-// logic fma_uf_fix1;
-// assign fma_uf_fix =  (rnd_result.result.exp == 0) & (|urnd_result.rs);
-// assign fma_uf_fix1 = (urnd_result.u_result.exp == 0) & (rnd_result.result.exp == 1) & mul_uround_out;
-// assign flags_o.NV = rnd_result.flags.NV;
-// assign flags_o.DZ = rnd_result.flags.DZ;
-// assign flags_o.OF = rnd_result.flags.OF | mul_ovf;
-// assign flags_o.UF = mul_uf? fma_uf_fix | fma_uf_fix1 : rnd_result.flags.UF;
-// assign flags_o.NX = mul_uf? (|urnd_result.rs) : rnd_result.flags.NX | mul_ovf;
-
 
 endmodule

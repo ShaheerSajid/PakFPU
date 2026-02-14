@@ -48,7 +48,7 @@ The following code snippet shows the top level ports for interfacing pakfpu. By 
 module fp_top
 #(
     parameter fp_format_e FP_FORMAT = FP32,
-    parameter fp_format_e INT_FORMAT = INT32,
+    parameter int_format_e INT_FORMAT = INT32,
 
     localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT),
     localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT),
@@ -61,19 +61,36 @@ module fp_top
     input start_i,
     output ready_o,
 
-    input [FP_WIDTH-1:0] a_i,
-    input [FP_WIDTH-1:0] b_i,
-    input [FP_WIDTH-1:0] c_i,
+    input [63:0] a_i,
+    input [63:0] b_i,
+    input [63:0] c_i,
 
     input roundmode_e rnd_i,
 
     input float_op_e op_i,
     input [1:0] op_modify_i,
 
-    output [FP_WIDTH-1:0] result_o,
+    output [63:0] result_o,
     output valid_o,
     output status_t flags_o
 );
 ```
+
+## Simulation (Verilator)
+
+Run from the repository root:
+
+```bash
+make -C simulation verilator TEST=f32_div ROUND_MODE=0 LEVEL=1 TRACE=0
+```
+
+`ROUND_MODE` mapping:
+- `0`: RNE
+- `1`: RTZ
+- `2`: RDN
+- `3`: RUP
+- `4`: RMM
+
+Do not pass `RM=<value>` on the make command line. `RM` is a GNU Make built-in variable used for file removal, and overriding it can break recursive make steps.
 
 ## Contribute

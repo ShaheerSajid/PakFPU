@@ -5,11 +5,16 @@ module d2f
     a_i,
     urnd_result_o
 );
+
+localparam fp_format_e FP_FORMAT = FP32;
+localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT);
+localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT);
+localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
 `include "fp_class.sv"
 input [63:0] a_i;
-output Structs #(.FP_FORMAT(FP32))::uround_res_t urnd_result_o;
+output uround_res_t urnd_result_o;
 
-Structs #(.FP_FORMAT(FP32))::fp_encoding_t result_o;
+fp_encoding_t result_o;
 logic [1:0] rs_o;
 logic round_en_o;
 logic invalid_o;
@@ -23,12 +28,11 @@ logic sign_o;
 logic [7:0] exp_o;
 logic [22:0] mant_o;
 
-
-Structs #(.FP_FORMAT(FP64))::fp_encoding_t a_decoded;
+fp64_encoding_t a_decoded;
 assign a_decoded = a_i;
 
 fp_info_t a_info;
-assign a_info = Functions #(.FP_FORMAT(FP64))::fp_info(a_i);
+assign a_info = fp64_info(a_i);
 
 
 always_comb
@@ -68,13 +72,13 @@ end
 //calculate urpr
 assign urpr_s = a_decoded.sign;
 assign urpr_mant = {a_info.is_normal, a_decoded.mant[51-:23], a_decoded.mant[28], |a_decoded.mant[27:0]};
-assign urpr_exp = a_decoded.exp + 8'd127 - 11'd1023;
+assign urpr_exp = {1'b0, a_decoded.exp} + 12'd127 - 12'd1023;
 
 assign exp_cout_o = {urpr_exp[11] , |urpr_exp[10:8]};
 
 assign sign_o = urpr_s;
 assign mant_o = urpr_mant[24-:23];
-assign exp_o = ($signed(urpr_exp) <  $signed(-8'd127))? 8'd1 : urpr_exp;
+assign exp_o = ($signed(urpr_exp) < -12'sd127) ? 8'd1 : urpr_exp[7:0];
 
 assign rs_o = urpr_mant[1:0];
 
