@@ -1,1 +1,3 @@
 simulation/obj_dir
+simulation/testbench/*.txt
+simulation/*.txt

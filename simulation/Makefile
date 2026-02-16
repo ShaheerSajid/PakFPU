@@ -1,6 +1,6 @@
 TEST ?= f32_add
 LEVEL ?= 1
-TRACE ?= 1
+TRACE ?= 0
 VERILATOR_OPT ?= 2
 
 # Auto-decode runtime/op config from Berkeley TestFloat TEST keyword.
@@ -356,7 +356,7 @@ gen_test:
 	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_even -seed 1000  -level $(LEVEL) > testbench/test_rne.txt
 	echo "${TEST} RMM"
 	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_maxMag -seed 1000  -level $(LEVEL) > testbench/test_rmm.txt
-	echo $(date) > gen_test
+# 	echo $(date) > gen_test
 
 questa_sim:
 	if [ -d "work" ]; then  vdel -lib work -all; fi
