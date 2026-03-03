@@ -14,7 +14,7 @@ module fp_classify
     output classmask_e class_o,
     output done_o
 );
-`include "fp_class.sv"
+`include "fp_defs.svh"
 /*
 rs1 is −∞. 0xff800000
 rs1 is a negative normal number. sign & exponent != 0 && exponent != 255

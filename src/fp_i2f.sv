@@ -21,7 +21,7 @@ module fp_i2f
     done_o,
     urnd_result_o
 );
-`include "fp_class.sv"
+`include "fp_defs.svh"
 input [INT_WIDTH-1:0] a_i;
 input start_i;
 input signed_i;

@@ -1,18 +1,20 @@
 # Pakfpu
 
-A FPU developed for the open-source community. The FPU is IEEE-754 compliant and verified using Berkely TestFloat. Pakfpu is implemented in systemverilog and is fully paramterizable supporting single, double and quad precision. 32 and 64bit integer formats are also supported.
+A FPU developed for the open-source community. The FPU is IEEE-754 compliant and verified using Berkeley TestFloat. Pakfpu is implemented in SystemVerilog and is fully parameterizable, supporting single and double precision. 32 and 64-bit integer formats are also supported.
+
+> **Note:** `FP48` is an internal format used only by the FMA pipeline to preserve mantissa width during intermediate computation. It is not a user-facing precision level.
 
 ## Operations
-* Addition/ Subtraction
+* Addition / Subtraction
 * Multiplication
-* Fused multiply and add
+* Fused Multiply-Add
 * Division
-* Square root
-* Min/Max
+* Square Root
+* Min / Max
 * Comparison
 * Sign Injection
-* Conversion to different FP format
-* Conversion between FP format and integers
+* Conversion between FP formats
+* Conversion between FP and integers
 * Classification
 
 ## Rounding Modes
@@ -21,76 +23,137 @@ A FPU developed for the open-source community. The FPU is IEEE-754 compliant and
 * RDN: round down
 * RUP: round up
 * RMM: round nearest (to max magnitude)
-* DYN: dynamic
+* DYN: dynamic (selected at runtime via `rnd_i`)
 
-The latencies of the operations are shown below:
-|Operation|Latency|
-|---|---|
-|Add/Sub/Mul| 1  |
-|Convert| 1  |
-|Compare| 1  |
-|Sign Injection| 1  |
-|Fused| 2  |
-|Div| 50 (Optimization in-progress)  |
-|Sqrt| 27  |
+## Latency
 
-The area and fmax (de1soc fpga and TSMC 65nm) are listed below:
-|Operation|Area|Frequency|
-|---|---|---|
-|   |   |   |
-|   |   |   |
-|   |   |   |
+All latencies are in clock cycles from assertion of `start_i` to assertion of `valid_o`.
+
+| Operation     | FP32 | FP64 | Notes |
+|---------------|------|------|-------|
+| Add / Sub     | 2    | 2    | 1 compute + 1 regwall/round |
+| Multiply      | 2    | 2    | 1 compute + 1 regwall/round |
+| Fused (FMA)   | 3    | 3    | 2 compute + 1 regwall/round |
+| Convert       | 2    | 2    | |
+| Compare       | 2    | 2    | |
+| Sign Injection| 2    | 2    | |
+| Square Root   | ~29  | ~57  | digit-recurrence, WIDTH/2 iterations |
+| **Div**       | **~52** | **~110** | digit-recurrence, 1 bit/cycle — optimization in progress (target: radix-4 SRT, ~26 / ~55 cycles) |
+
+## Area and Frequency
+
+| Configuration | Area | Frequency |
+|---------------|------|-----------|
+| FP32, DE1-SoC FPGA | TBD | TBD |
+| FP64, DE1-SoC FPGA | TBD | TBD |
+| FP32, TSMC 65nm    | TBD | TBD |
+| FP64, TSMC 65nm    | TBD | TBD |
 
 ## Usage and Integration
 
-The following code snippet shows the top level ports for interfacing pakfpu. By specifying FP64 the user can instantiate a double precision fpu.
-```
-module fp_top
-#(
-    parameter fp_format_e FP_FORMAT = FP32,
-    parameter int_format_e INT_FORMAT = INT32,
+Instantiate `fp_top` with the desired precision. Import `fp_pkg` for operation and rounding mode enumerations.
 
-    localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT),
-    localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT),
-    localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT),
-)
-(
-    input clk_i,
-    input rst_i,
+```systemverilog
+import fp_pkg::*;
 
-    input start_i,
-    output ready_o,
+fp_top #(
+    .FP_FORMAT  (FP32),   // FP32 or FP64
+    .INT_FORMAT (INT32)   // INT32 or INT64
+) fpu (
+    .clk_i       (clk),
+    .rst_i       (rst_n),   // active-low reset
 
-    input [63:0] a_i,
-    input [63:0] b_i,
-    input [63:0] c_i,
+    .start_i     (start),
+    .ready_o     (ready),   // deasserted while a long operation (div/sqrt) is in progress
 
-    input roundmode_e rnd_i,
+    .a_i         (a),       // 64-bit; lower FP_WIDTH bits are used
+    .b_i         (b),
+    .c_i         (c),       // FMA third operand
 
-    input float_op_e op_i,
-    input [1:0] op_modify_i,
+    .op_i        (FDIV),    // float_op_e from fp_pkg
+    .op_modify_i (2'b00),   // operation sub-mode (e.g. sub vs add, sqrt vs div)
+    .rnd_i       (RNE),     // roundmode_e from fp_pkg
 
-    output [63:0] result_o,
-    output valid_o,
-    output status_t flags_o
+    .result_o    (result),
+    .valid_o     (valid),
+    .flags_o     (flags)    // status_t: {NV, DZ, OF, UF, NX}
 );
 ```
 
+## Verification Status
+
+Tested with Berkeley TestFloat (level 1, all 5 rounding modes: RNE RTZ RDN RUP RMM).
+
+| Operation | FP32 | FP64 | Notes |
+|-----------|------|------|-------|
+| add | PASS | PASS | |
+| sub | PASS | PASS | |
+| mul | PASS | PASS | |
+| div | PASS | PASS | |
+| sqrt | PASS | PASS | |
+| mulAdd (FMA) | PASS | — | f64_mulAdd has a known bug; excluded |
+| le / eq / lt | PASS | PASS | |
+| f2f conversion | PASS | PASS | f32↔f64 |
+| int→float (i2f) | PASS | PASS | signed/unsigned × 32/64-bit |
+| float→int (f2i) | PASS | PASS | signed/unsigned × 32/64-bit |
+| min / max | — | — | No testfloat_gen reference vectors |
+| classify | — | — | No testfloat_gen reference vectors |
+| mulSub / negMulAdd / negMulSub | — | — | No testfloat_gen reference vectors |
+| rem | — | — | Not implemented |
+
+> **—** means the operation could not be verified automatically: either no Berkeley TestFloat reference vectors exist for it, or it is not yet implemented.
+
 ## Simulation (Verilator)
 
-Run from the repository root:
+### Quick start
 
 ```bash
-make -C simulation verilator TEST=f32_div ROUND_MODE=0 LEVEL=1 TRACE=0
+make -C simulation verilator TEST=f32_div ROUND_MODE=0 LEVEL=1
 ```
 
-`ROUND_MODE` mapping:
-- `0`: RNE
-- `1`: RTZ
-- `2`: RDN
-- `3`: RUP
-- `4`: RMM
+### Variables
 
-Do not pass `RM=<value>` on the make command line. `RM` is a GNU Make built-in variable used for file removal, and overriding it can break recursive make steps.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TEST` | `f32_add` | Berkeley TestFloat operation keyword |
+| `ROUND_MODE` | `1` | `0`=RNE `1`=RTZ `2`=RDN `3`=RUP `4`=RMM |
+| `LEVEL` | `1` | TestFloat generation thoroughness (1 or 2) |
+| `TRACE` | `0` | Set to `1` to enable waveform dump |
+| `VERILATOR_OPT` | `2` | Verilator optimisation level (0–3) |
+
+> **Do not pass `RM=<value>`** on the command line. `RM` is a GNU Make built-in variable used for file removal; overriding it breaks the recursive Verilator build step. Use `ROUND_MODE` instead.
+
+### Run all rounding modes
+
+```bash
+make -C simulation verilator_all_rnd TEST=f32_sqrt LEVEL=1
+```
+
+### Show all options
+
+```bash
+make -C simulation help
+```
+
+### Run the full regression
+
+A script that replicates the [Verification Status](#verification-status) table is provided:
+
+```bash
+cd simulation
+./regress.sh          # level 1 (default, ~2 min)
+./regress.sh 2        # level 2 (more thorough, slower)
+```
+
+It runs all 35 operations across all 5 rounding modes (175 test runs total). Exit code is 0 on
+full pass, 1 on any failure. Failures are detailed in `simulation/regress_failures.txt`.
+
+## Source file list
+
+The file `simulation/src.args` lists all RTL source files compiled by both Verilator and QuestaSim. When adding a new module, append it there.
+
+Experimental / work-in-progress modules live in `src/wip/` and are not included in `src.args`.
 
 ## Contribute
+
+Contributions are welcome. Please open an issue or pull request on GitHub.

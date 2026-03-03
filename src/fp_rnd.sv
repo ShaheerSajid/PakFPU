@@ -15,7 +15,7 @@ module fp_rnd
     mul_ovf,
     rnd_result_o
 );
-`include "fp_class.sv"
+`include "fp_defs.svh"
 
 input uround_res_t urnd_result_i;
 input roundmode_e rnd_i;

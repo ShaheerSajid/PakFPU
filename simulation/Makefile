@@ -344,19 +344,13 @@ else
 $(error Unsupported TRACE='$(TRACE)'. Use 0 or 1)
 endif
 
-gen_test: 
-	echo "Generating Tests"
-	echo "${TEST} RDN"
-	./testfloat/testfloat_gen ${TEST} -tininessafter -rmin -seed 1000  -level $(LEVEL) > testbench/test_rdn.txt 
-	echo "${TEST} RUP"
-	./testfloat/testfloat_gen ${TEST} -tininessafter -rmax -seed 1000  -level $(LEVEL) > testbench/test_rup.txt
-	echo "${TEST} RTZ"
-	./testfloat/testfloat_gen ${TEST} -tininessafter -rminMag -seed 1000  -level $(LEVEL) > testbench/test_rtz.txt
-	echo "${TEST} RNE"
-	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_even -seed 1000  -level $(LEVEL) > testbench/test_rne.txt
-	echo "${TEST} RMM"
-	./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_maxMag -seed 1000  -level $(LEVEL) > testbench/test_rmm.txt
-# 	echo $(date) > gen_test
+gen_test:
+	@echo "Generating test vectors for $(TEST) at level $(LEVEL)"
+	@echo "  RDN..."; ./testfloat/testfloat_gen ${TEST} -tininessafter -rmin     -seed 1000 -level $(LEVEL) > testbench/test_rdn.txt
+	@echo "  RUP..."; ./testfloat/testfloat_gen ${TEST} -tininessafter -rmax     -seed 1000 -level $(LEVEL) > testbench/test_rup.txt
+	@echo "  RTZ..."; ./testfloat/testfloat_gen ${TEST} -tininessafter -rminMag  -seed 1000 -level $(LEVEL) > testbench/test_rtz.txt
+	@echo "  RNE..."; ./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_even    -seed 1000 -level $(LEVEL) > testbench/test_rne.txt
+	@echo "  RMM..."; ./testfloat/testfloat_gen ${TEST} -tininessafter -rnear_maxMag  -seed 1000 -level $(LEVEL) > testbench/test_rmm.txt
 
 questa_sim:
 	if [ -d "work" ]; then  vdel -lib work -all; fi
@@ -392,6 +386,50 @@ verilator_sim:
 	obj_dir/Vtb $(TEST_FILE) $(ROUND_MODE) $(NUM_INPUTS) $(RESULT_BITS) $(CHECK_FLAGS) 2>> err.txt
 	
 	
+# Run verilator across all 5 rounding modes for the given TEST.
+.PHONY: verilator_all_rnd
+verilator_all_rnd: gen_test
+	@for rm in 0 1 2 3 4; do \
+	  $(MAKE) -s verilator_sim TEST=$(TEST) ROUND_MODE=$$rm LEVEL=$(LEVEL) TRACE=$(TRACE); \
+	done
+
+.PHONY: help
+help:
+	@echo "Usage: make <target> [VARIABLE=value ...]"
+	@echo ""
+	@echo "Targets:"
+	@echo "  gen_test          Generate Berkeley TestFloat vectors for TEST"
+	@echo "  verilator         gen_test + Verilator compile + run (single rounding mode)"
+	@echo "  verilator_all_rnd gen_test + Verilator run across all 5 rounding modes"
+	@echo "  questa            gen_test + QuestaSim compile + run"
+	@echo "  clean             Remove generated files"
+	@echo ""
+	@echo "Key variables (defaults shown):"
+	@echo "  TEST=f32_add      Berkeley TestFloat operation keyword"
+	@echo "  ROUND_MODE=1      0:RNE  1:RTZ  2:RDN  3:RUP  4:RMM"
+	@echo "  LEVEL=1           TestFloat generation level (1 or 2)"
+	@echo "  TRACE=0           1 to enable waveform dump"
+	@echo "  VERILATOR_OPT=2   Verilator optimisation level (0-3)"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make verilator TEST=f32_div ROUND_MODE=0 LEVEL=1"
+	@echo "  make verilator TEST=f64_mul ROUND_MODE=0 LEVEL=2 TRACE=1"
+	@echo "  make verilator_all_rnd TEST=f32_sqrt LEVEL=1"
+	@echo ""
+	@echo "Supported TEST keywords (auto-decoded):"
+	@echo "  Arithmetic : f32_add f32_sub f32_mul f32_div f32_sqrt  (and f64_* variants)"
+	@echo "  FMA        : f32_mulAdd f64_mulAdd"
+	@echo "               (mulSub/negMulAdd/negMulSub have no testfloat_gen vectors;"
+	@echo "                use TEST=f32_mulAdd with OP_MODIFY=1/2/3 for RTL-only runs)"
+	@echo "  Compare    : f32_le f32_eq f32_lt"
+	@echo "  Min/Max    : f32_min f32_max"
+	@echo "  Classify   : f32_classify"
+	@echo "  Conversion : f32_to_f64 f64_to_f32"
+	@echo "               i32_to_f32 ui32_to_f32 i64_to_f32 ui64_to_f32"
+	@echo "               i32_to_f64 ui32_to_f64 i64_to_f64 ui64_to_f64"
+	@echo "               f32_to_i32 f32_to_ui32 f32_to_i64 f32_to_ui64"
+	@echo "               f64_to_i32 f64_to_ui32 f64_to_i64 f64_to_ui64"
+
 .PHONY: questa
 questa: gen_test questa_sim
 
@@ -399,7 +437,7 @@ questa: gen_test questa_sim
 verilator: gen_test verilator_sim
 
 .PHONY: clean
-clean: 
+clean:
 	rm -rf testbench/*.txt
 	rm -rf work
 	rm -rf transcript *.wlf

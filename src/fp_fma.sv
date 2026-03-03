@@ -13,6 +13,8 @@ module fp_fma
     localparam R_IND = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}}
 )
 (
+    clk_i,
+    reset_i,
     a_i,
     b_i,
     c_i,
@@ -26,8 +28,10 @@ module fp_fma
     mul_uround_out,
     urnd_result_o
 );
-`include "fp_class.sv"
+`include "fp_defs.svh"
 
+input clk_i;
+input reset_i;
 input [FP_WIDTH-1:0] a_i;
 input [FP_WIDTH-1:0] b_i;
 input [FP_WIDTH-1:0] c_i;
@@ -196,6 +200,58 @@ always_comb begin
     else
         joined_mul_result = {mul_result.sign,mul_result.exp,mul_norm_mant};
 end
+
+logic [FP_WIDTH_ADDER-1:0] joined_mul_result_q;
+logic mul_round_en_q;
+logic [1:0] mul_exp_cout_q;
+logic mult_sticky_bit_q;
+logic sub_q;
+roundmode_e rnd_q;
+logic valid_q;
+
+fp_encoding_t mul_result_q;
+fp_encoding_t a_decoded_q;
+fp_encoding_t b_decoded_q;
+fp_encoding_t c_decoded_q;
+fp_info_t a_info_q;
+fp_info_t b_info_q;
+fp_info_t c_info_q;
+
+always_ff @(posedge clk_i or negedge reset_i) begin
+    if (!reset_i) begin
+        joined_mul_result_q <= '0;
+        mul_round_en_q <= 1'b0;
+        mul_exp_cout_q <= '0;
+        mult_sticky_bit_q <= 1'b0;
+        sub_q <= 1'b0;
+        rnd_q <= RNE;
+        valid_q <= 1'b0;
+        mul_result_q <= '0;
+        a_decoded_q <= '0;
+        b_decoded_q <= '0;
+        c_decoded_q <= '0;
+        a_info_q <= '0;
+        b_info_q <= '0;
+        c_info_q <= '0;
+    end else begin
+        valid_q <= start_i;
+        if (start_i) begin
+            joined_mul_result_q <= joined_mul_result;
+            mul_round_en_q <= mul_round_en;
+            mul_exp_cout_q <= mul_exp_cout;
+            mult_sticky_bit_q <= mult_sticky_bit;
+            sub_q <= sub_i;
+            rnd_q <= rnd_i;
+            mul_result_q <= mul_result;
+            a_decoded_q <= a_decoded;
+            b_decoded_q <= b_decoded;
+            c_decoded_q <= c_decoded;
+            a_info_q <= a_info;
+            b_info_q <= b_info;
+            c_info_q <= c_info;
+        end
+    end
+end
 ////////////////////////////////////////////////////////
 // Add/Sub 
 ////////////////////////////////////////////////////////
@@ -204,12 +260,12 @@ uround_res_fma_t add_result;
 
 fp_fma_add_unit  #(.FP_FORMAT(FP48)) fp_add_inst
 (
-    .a_i(joined_mul_result),
-    .b_i({c_i, {MANT_WIDTH+2{1'b0}}}),
-    .sub_i(sub_i),
-    .exp_in(mul_exp_cout),
-    .round_en(mul_round_en),
-    .rnd_i(rnd_i),
+    .a_i(joined_mul_result_q),
+    .b_i({c_decoded_q, {MANT_WIDTH+2{1'b0}}}),
+    .sub_i(sub_q),
+    .exp_in(mul_exp_cout_q),
+    .round_en(mul_round_en_q),
+    .rnd_i(rnd_q),
     .round_only(round_only),
     .mul_ovf(mul_ovf_sig),
     .mul_uf(mul_uf),
@@ -222,13 +278,13 @@ assign mant_o = add_result.u_result.mant[2*MANT_WIDTH + 1 -: MANT_WIDTH];
 //  Output
 ////////////////////////////////////////////////////////
 assign rs_o[1] = add_result.u_result.mant[MANT_WIDTH + 1];
-assign rs_o[0] = (|add_result.u_result.mant[MANT_WIDTH:0]) | (|add_result.rs) | mult_sticky_bit;
-assign invalid_o = a_info.is_signalling | b_info.is_signalling | c_info.is_signalling | 
-                    ((a_info.is_inf & b_info.is_zero) | (a_info.is_zero & b_info.is_inf)) |
-                    (!a_info.is_nan && !b_info.is_nan && c_info.is_inf & ((mul_result.sign ^ (sub_i ^ c_decoded.sign)) & (a_info.is_inf | b_info.is_inf)));
+assign rs_o[0] = (|add_result.u_result.mant[MANT_WIDTH:0]) | (|add_result.rs) | mult_sticky_bit_q;
+assign invalid_o = a_info_q.is_signalling | b_info_q.is_signalling | c_info_q.is_signalling | 
+                    ((a_info_q.is_inf & b_info_q.is_zero) | (a_info_q.is_zero & b_info_q.is_inf)) |
+                    (!a_info_q.is_nan && !b_info_q.is_nan && c_info_q.is_inf & ((mul_result_q.sign ^ (sub_q ^ c_decoded_q.sign)) & (a_info_q.is_inf | b_info_q.is_inf)));
 
 always_comb
-    case (rnd_i)
+    case (rnd_q)
         RNE, RMM :  mul_uround_out = ~add_result.u_result.mant[MANT_WIDTH];
         default:    mul_uround_out = ~(|add_result.rs) & (rs_o == 2'b01 | rs_o == 2'b10);
     endcase
@@ -243,30 +299,30 @@ begin
 	result_o = 0;
     mul_ovf = 1'b0;
 
-    if((a_info.is_inf & b_info.is_zero) | (a_info.is_zero & b_info.is_inf))
+    if((a_info_q.is_inf & b_info_q.is_zero) | (a_info_q.is_zero & b_info_q.is_inf))
         result_o = R_IND;
-    else if(a_info.is_nan)
+    else if(a_info_q.is_nan)
     begin
-        result_o.sign = a_decoded.sign;
-        result_o.mant = {1'b1, a_decoded.mant[MANT_WIDTH-2:0]};
-        result_o.exp = a_decoded.exp;
+        result_o.sign = a_decoded_q.sign;
+        result_o.mant = {1'b1, a_decoded_q.mant[MANT_WIDTH-2:0]};
+        result_o.exp = a_decoded_q.exp;
     end
-    else if(b_info.is_nan)
+    else if(b_info_q.is_nan)
     begin
-        result_o.sign = b_decoded.sign;
-        result_o.mant = {1'b1, b_decoded.mant[MANT_WIDTH-2:0]};
-        result_o.exp = b_decoded.exp;
+        result_o.sign = b_decoded_q.sign;
+        result_o.mant = {1'b1, b_decoded_q.mant[MANT_WIDTH-2:0]};
+        result_o.exp = b_decoded_q.exp;
     end
-    else if(c_info.is_nan)
+    else if(c_info_q.is_nan)
     begin
-        result_o.sign = c_decoded.sign;
-        result_o.mant = {1'b1, c_decoded.mant[MANT_WIDTH-2:0]};
-        result_o.exp = c_decoded.exp;
+        result_o.sign = c_decoded_q.sign;
+        result_o.mant = {1'b1, c_decoded_q.mant[MANT_WIDTH-2:0]};
+        result_o.exp = c_decoded_q.exp;
     end
-    else if(c_info.is_inf)
+    else if(c_info_q.is_inf)
         // This should be calculated as finite inputs can result in infinite output due to ovf
         // Maybe you already checked that in adder
-        result_o = ((mul_result.sign ^ (sub_i ^ c_decoded.sign)) & (a_info.is_inf | b_info.is_inf))? R_IND : {sub_i ^ c_decoded.sign,c_decoded.exp,c_decoded.mant} ;
+        result_o = ((mul_result_q.sign ^ (sub_q ^ c_decoded_q.sign)) & (a_info_q.is_inf | b_info_q.is_inf))? R_IND : {sub_q ^ c_decoded_q.sign,c_decoded_q.exp,c_decoded_q.mant} ;
     else
     begin
         round_en_o       = add_result.round_en;
@@ -283,7 +339,7 @@ assign urnd_result_o.round_en   =  round_en_o;
 assign urnd_result_o.invalid    =  invalid_o;
 assign urnd_result_o.exp_cout   =  add_result.exp_cout;
 
-assign done_o = start_i;
+assign done_o = valid_q;
 endmodule
 
 
@@ -316,7 +372,7 @@ module fp_fma_add_unit
     urnd_result_o
 
 );
-`include "fp_class.sv"
+`include "fp_defs.svh"
 
 input [FP_WIDTH-1:0] a_i;
 input [FP_WIDTH-1:0] b_i;

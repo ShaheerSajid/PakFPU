@@ -24,7 +24,7 @@ module fp_div
     divide_by_zero
 
 );
-`include "fp_class.sv"
+`include "fp_defs.svh"
 
 input clk_i;
 input reset_i;

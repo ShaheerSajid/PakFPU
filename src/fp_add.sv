@@ -22,7 +22,7 @@ module fp_add
     urnd_result_o
 
 );
-`include "fp_class.sv"
+`include "fp_defs.svh"
 
 input [FP_WIDTH-1:0] a_i;
 input [FP_WIDTH-1:0] b_i;

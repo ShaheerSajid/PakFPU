@@ -30,7 +30,7 @@ module fp_top
     output logic valid_o,
     output status_t flags_o
 );
-`include "fp_class.sv"
+`include "fp_defs.svh"
 
 localparam logic [FP_WIDTH-1:0] QNAN_FP = {1'b0, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}};
 
@@ -236,6 +236,8 @@ logic fma_mul_uf;
 logic fma_mul_uround_out;
 fp_fma #(.FP_FORMAT(FP_FORMAT)) fp_fma_inst
 (
+    .clk_i(clk_i),
+    .reset_i(rst_i),
     .a_i(fma_a_i),
     .b_i(b_fp),
     .c_i(c_fp),

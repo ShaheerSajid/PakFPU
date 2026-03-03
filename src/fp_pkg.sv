@@ -105,7 +105,62 @@ localparam fp_widths_t [NUM_FP_FORMATS-1:0] FP_ENCODINGS  = '{
 // add new formats here
 };
 
-  function automatic int maximum(int a, int b);
+// Fixed-width encodings for FP32/FP64, used by cross-format conversion
+// modules (f2d, d2f) and any code that needs format-specific types without
+// a parameterized module context.
+typedef struct packed {
+    logic sign;
+    logic [7:0] exp;
+    logic [22:0] mant;
+} fp32_encoding_t;
+
+typedef struct packed {
+    logic sign;
+    logic [10:0] exp;
+    logic [51:0] mant;
+} fp64_encoding_t;
+
+function automatic fp_info_t fp32_info(input logic [31:0] val);
+    fp_info_t info;
+    fp32_encoding_t decoded;
+    begin
+        decoded = val;
+        info = '0;
+        info.is_minus       = decoded.sign;
+        info.is_normal      = (decoded.exp >= 8'd1) && (decoded.exp <= 8'd254);
+        info.is_subnormal   = (decoded.exp == 8'd0) && (decoded.mant != '0);
+        info.is_zero        = (decoded.exp == '0) && (decoded.mant == '0);
+        info.is_inf         = (decoded.exp == 8'hff) && (decoded.mant == '0);
+        info.is_nan         = (decoded.exp == 8'hff) && (decoded.mant != '0);
+        info.is_signalling  = info.is_nan && !decoded.mant[22];
+        info.is_quiet       = info.is_nan && decoded.mant[22];
+        info.is_finite      = info.is_zero | info.is_subnormal | info.is_normal;
+        info.is_canonical   = info.is_finite | info.is_inf | info.is_quiet;
+        return info;
+    end
+endfunction
+
+function automatic fp_info_t fp64_info(input logic [63:0] val);
+    fp_info_t info;
+    fp64_encoding_t decoded;
+    begin
+        decoded = val;
+        info = '0;
+        info.is_minus       = decoded.sign;
+        info.is_normal      = (decoded.exp >= 11'd1) && (decoded.exp <= 11'd2046);
+        info.is_subnormal   = (decoded.exp == 11'd0) && (decoded.mant != '0);
+        info.is_zero        = (decoded.exp == '0) && (decoded.mant == '0);
+        info.is_inf         = (decoded.exp == 11'h7ff) && (decoded.mant == '0);
+        info.is_nan         = (decoded.exp == 11'h7ff) && (decoded.mant != '0);
+        info.is_signalling  = info.is_nan && !decoded.mant[51];
+        info.is_quiet       = info.is_nan && decoded.mant[51];
+        info.is_finite      = info.is_zero | info.is_subnormal | info.is_normal;
+        info.is_canonical   = info.is_finite | info.is_inf | info.is_quiet;
+        return info;
+    end
+endfunction
+
+function automatic int maximum(int a, int b);
     return (a > b) ? a : b;
   endfunction
 

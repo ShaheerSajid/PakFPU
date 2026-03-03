@@ -21,7 +21,7 @@ module fp_sqrt
     done_o,
     urnd_result_o
 );
-`include "fp_class.sv"
+`include "fp_defs.svh"
 
 input clk_i;
 input reset_i;

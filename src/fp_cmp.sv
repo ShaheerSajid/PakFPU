@@ -20,7 +20,7 @@ module fp_cmp
     output done_o,
     output status_t flags_o
 );
-`include "fp_class.sv"
+`include "fp_defs.svh"
 logic exp_eq, exp_lt, exp_gt;
 logic mant_eq, mant_lt, mant_gt;
 logic eq;

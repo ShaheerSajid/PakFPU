@@ -20,7 +20,7 @@ module fp_f2i
     output status_t flags_o,
     output done_o
 );
-`include "fp_class.sv"
+`include "fp_defs.svh"
 logic [MANT_WIDTH+INT_WIDTH-1:0] pre_round_mant;
 logic [INT_WIDTH:0] round_int;
 logic [1:0] rs;

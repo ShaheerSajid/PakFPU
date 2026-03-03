@@ -10,7 +10,7 @@ localparam fp_format_e FP_FORMAT = FP64;
 localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT);
 localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT);
 localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
-`include "fp_class.sv"
+`include "fp_defs.svh"
 input [31:0] a_i;
 output round_res_t rnd_result_o;
 
