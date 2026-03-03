@@ -2,11 +2,7 @@ import fp_pkg::*;
 
 module fp_rnd
 #(
-    parameter fp_format_e FP_FORMAT = FP32,
-
-    localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT),
-    localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT),
-    localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT)
+    parameter fp_format_e FP_FORMAT = FP32
 )
 (
     urnd_result_i,
@@ -15,7 +11,10 @@ module fp_rnd
     mul_ovf,
     rnd_result_o
 );
-`include "fp_class.sv"
+localparam int unsigned FP_WIDTH   = fp_width(FP_FORMAT);
+localparam int unsigned EXP_WIDTH  = exp_bits(FP_FORMAT);
+localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
+`include "fp_defs.svh"
 
 input uround_res_t urnd_result_i;
 input roundmode_e rnd_i;
@@ -51,7 +50,6 @@ logic [EXP_WIDTH+1:0] exp_o;
 logic [MANT_WIDTH-1:0] mant_o;
 
 logic usign_o;
-logic [EXP_WIDTH-1:0] uexp_o;
 logic [MANT_WIDTH-1:0] umant_o;
 
 logic ovf;
@@ -167,7 +165,6 @@ assign denorm_shift = $signed(0)-$signed(a_i.exp);
 always_comb
 begin
     usign_o = a_i.sign;
-    uexp_o = {EXP_WIDTH{1'b0}};
     {umant_o, round_out} = {1'b1, a_i.mant[MANT_WIDTH-1:1], a_i.mant[0]} >> denorm_shift;
 end
 

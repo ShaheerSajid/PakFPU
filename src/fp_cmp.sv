@@ -2,25 +2,32 @@ import fp_pkg::*;
 
 module fp_cmp
 #(
-    parameter fp_format_e FP_FORMAT = FP32,
-
-    localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT),
-    localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT),
-    localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT)
-
+    parameter fp_format_e FP_FORMAT = FP32
 )
 (
-    input [FP_WIDTH-1:0] a_i,
-    input [FP_WIDTH-1:0] b_i,
-    input start_i,
-    input eq_en_i,
-    output logic lt_o,
-    output logic le_o,
-    output logic eq_o,
-    output done_o,
-    output status_t flags_o
+    a_i,
+    b_i,
+    start_i,
+    eq_en_i,
+    lt_o,
+    le_o,
+    eq_o,
+    done_o,
+    flags_o
 );
-`include "fp_class.sv"
+localparam int unsigned FP_WIDTH   = fp_width(FP_FORMAT);
+localparam int unsigned EXP_WIDTH  = exp_bits(FP_FORMAT);
+localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
+`include "fp_defs.svh"
+input [FP_WIDTH-1:0] a_i;
+input [FP_WIDTH-1:0] b_i;
+input start_i;
+input eq_en_i;
+output logic lt_o;
+output logic le_o;
+output logic eq_o;
+output done_o;
+output status_t flags_o;
 logic exp_eq, exp_lt, exp_gt;
 logic mant_eq, mant_lt, mant_gt;
 logic eq;

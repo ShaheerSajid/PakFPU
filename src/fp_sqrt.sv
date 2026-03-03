@@ -2,17 +2,9 @@ import fp_pkg::*;
 
 module fp_sqrt
 #(
-    parameter fp_format_e FP_FORMAT = FP32,
-
-    localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT),
-    localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT),
-    localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT),
-
-    localparam int unsigned BIAS = (2**(EXP_WIDTH-1)-1),
-    localparam INF = {{EXP_WIDTH{1'b1}}, {MANT_WIDTH{1'b0}}},
-    localparam R_IND = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}}
+    parameter fp_format_e FP_FORMAT = FP32
 )
-( 
+(
     clk_i,
     reset_i,
     a_i,
@@ -21,7 +13,13 @@ module fp_sqrt
     done_o,
     urnd_result_o
 );
-`include "fp_class.sv"
+localparam int unsigned FP_WIDTH   = fp_width(FP_FORMAT);
+localparam int unsigned EXP_WIDTH  = exp_bits(FP_FORMAT);
+localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
+localparam int unsigned BIAS       = (2**(EXP_WIDTH-1)-1);
+localparam INF   = {{EXP_WIDTH{1'b1}}, {MANT_WIDTH{1'b0}}};
+localparam R_IND = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}};
+`include "fp_defs.svh"
 
 input clk_i;
 input reset_i;
@@ -121,7 +119,7 @@ assign mant_o = shifted_mant_norm[MANT_WIDTH+GUARD_BITS-1 -: MANT_WIDTH];
 
 //calculate RS
 assign rs_o[1] = shifted_mant_norm[GUARD_BITS-1];
-assign rs_o[0] = !(mant_rem[15:0] == 'hffff | ((mant_rem & 'h8007fff) == 'h8007fff));
+assign rs_o[0] = |shifted_mant_norm[GUARD_BITS-2:0] || mant_rem != 'h0;//!(mant_rem[FP_WIDTH/2 - 1:0] == {(FP_WIDTH/2){1'b1}} || mant_rem == 'h0);
 assign invalid_o = a_info.is_signalling | (a_info.is_minus & ~(a_info.is_quiet | a_info.is_zero));
 assign exp_cout_o = 'h0;
 

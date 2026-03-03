@@ -1,0 +1,9 @@
+simulation/obj_dir
+simulation/testbench/*.txt
+simulation/*.txt
+synth/quartus/de1soc/db
+synth/quartus/de1soc/output_files
+synth/quartus/de1soc/incremental_db
+synth/quartus/de1soc/*.qdf
+synth/quartus/de1soc/*.txt
+synth/quartus/de1soc/*.qws

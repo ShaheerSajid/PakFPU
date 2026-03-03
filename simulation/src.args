@@ -7,8 +7,11 @@
 ../src/fp_i2f.sv
 ../src/fp_mul.sv
 ../src/fp_fma.sv
+../src/fp_div.sv
 ../src/int_div.sv
 ../src/int_sqrt.sv
-../src/fp_div.sv
 ../src/fp_sqrt.sv
 ../src/lzc.sv
+../src/fp_f2d.sv
+../src/fp_d2f.sv
+../src/fp_top.sv

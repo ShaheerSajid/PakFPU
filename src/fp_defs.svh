@@ -1,12 +1,16 @@
 
-//helper functions
-// virtual class Functions 
-// #(  
-//         parameter fp_format_e FP_FORMAT = FP32
-// );
-//     localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT);
-//     localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT);
-//     localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
+// fp_defs.svh — included inside each parameterized module body via `include.
+// Requires the including module to have these localparams in scope:
+//   FP_WIDTH, EXP_WIDTH, MANT_WIDTH  (derived from FP_FORMAT via fp_pkg).
+//
+// Defines parameterized types and classification functions that depend on
+// the module's FP_FORMAT context:
+//   - FP classification functions (is_normal, is_nan, fp_info, ...)
+//   - Parameterized structs: fp_encoding_t, uround_res_t, round_res_t,
+//     fp_encoding_fma_t, uround_res_fma_t
+//
+// Fixed-width types (fp32_encoding_t, fp64_encoding_t, fp32_info, fp64_info)
+// live in fp_pkg.sv and are available via `import fp_pkg::*`.
 
 function logic sign(logic [FP_WIDTH-1:0] val);
     return val[FP_WIDTH-1];
@@ -50,6 +54,7 @@ endfunction
 
 function fp_info_t fp_info(logic [FP_WIDTH-1:0] val);
     fp_info_t info;
+    info = '0;
     info.is_minus       = is_minus(val);
     info.is_normal      = is_normal(val);
     info.is_subnormal   = is_subnormal(val);
@@ -62,15 +67,7 @@ function fp_info_t fp_info(logic [FP_WIDTH-1:0] val);
     info.is_quiet       = is_quiet(val);
     return info;
 endfunction
-// endclass
 
-// virtual class Structs 
-// #(  
-//     parameter fp_format_e FP_FORMAT = FP32
-// );
-
-//     localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT);
-//     localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
 typedef struct packed {
     logic sign;
     logic [EXP_WIDTH-1:0] exp;
@@ -89,7 +86,6 @@ typedef struct packed {
     fp_encoding_t result;
     status_t flags;
 } round_res_t;
-// endclass
 
 typedef struct packed {
     logic sign;
@@ -104,3 +100,5 @@ typedef struct packed {
     logic invalid;
     logic [1:0] exp_cout;
 } uround_res_fma_t;
+
+

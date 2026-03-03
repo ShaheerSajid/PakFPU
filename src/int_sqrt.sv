@@ -14,13 +14,15 @@ module int_sqrt
 );
 
 
-logic [(WIDTH/2):0] R;
-logic [(WIDTH/2) - 1:0] Q;
-logic [$clog2(WIDTH/2):0] n;
-logic [$clog2(WIDTH/2):0] run_cnt;
+localparam int N = WIDTH / 2;
+localparam int CNT_W = (N <= 1) ? 1 : $clog2(N);
+localparam int REM_W = N + 2;
 
-// calculate n-bits
-assign n = WIDTH / 2;
+logic signed [REM_W-1:0] R;
+logic signed [REM_W-1:0] R_int;
+logic signed [REM_W-1:0] R_fix;
+logic [N-1:0] Q;
+logic [CNT_W-1:0] run_cnt;
 //////////////////////
 //state machine
 //////////////////////
@@ -46,30 +48,52 @@ end
 //////////////////////
 //Registers
 //////////////////////
-logic [1:0] lut [(WIDTH/2) - 1:0];
-logic [(WIDTH/2):0] R_int;
+logic [1:0] lut [N - 1:0];
 
 genvar i;
 generate
-    for(i = (WIDTH/2)-1; i >= 0; i=i-1)
-     assign lut[i] = n_i[2*i+1:2*i];
+    for(i = 0; i < N; i=i+1) begin : gen_lut
+        assign lut[i] = n_i[2*i+1:2*i];
+    end
 endgenerate
 
 
-always_comb
-    if(~R[(WIDTH/2)])
-      R_int = ((R << 2) | lut[run_cnt]) - ((Q << 2) | 2'b01);
-    else
-      R_int = ((R << 2) | lut[run_cnt]) + ((Q << 2) | 2'b11);
+always_comb begin
+  logic signed [REM_W+1:0] r_shifted;
+  logic signed [REM_W+1:0] pair_ext;
+  logic signed [REM_W+1:0] q_term;
+  logic signed [REM_W+1:0] r_next_wide;
+
+  r_shifted = $signed(R) <<< 2;
+  pair_ext = $signed({{REM_W{1'b0}}, lut[run_cnt]});
+
+  if (R >= 0) begin
+    q_term = $signed({2'b00, Q, 2'b01});
+    r_next_wide = r_shifted + pair_ext - q_term;
+  end
+  else begin
+    q_term = $signed({2'b00, Q, 2'b11});
+    r_next_wide = r_shifted + pair_ext + q_term;
+  end
+
+  R_int = r_next_wide[REM_W-1:0];
+end
+
+always_comb begin
+  R_fix = R;
+  if (R < 0)
+    R_fix = R + $signed({1'b0, Q, 1'b1});
+end
+
 //run_cnt
 always_ff @( posedge clk_i or negedge reset_i ) begin
   if(!reset_i)
     run_cnt <= 'h0;
   else if(cur_state == IDLE)
-    run_cnt <= n - 1;
-  else if(cur_state == RUN)
+    run_cnt <= CNT_W'(N - 1);
+  else if(cur_state == RUN && run_cnt != '0)
     run_cnt <= run_cnt - 1'b1;
-  else 
+  else if(cur_state == DONE)
     run_cnt <= 'h0;
 end
 //R, D, Q
@@ -84,31 +108,29 @@ always_ff @( posedge clk_i or negedge reset_i ) begin
   end
   else if(cur_state == RUN) begin
       R <= R_int;
-      Q <= (R_int[(WIDTH/2)])? (Q << 1) : (Q << 1) | 1;
+      Q <= (R_int < 0)? (Q << 1) : ((Q << 1) | {{(N-1){1'b0}}, 1'b1});
   end
 end
 //output
-logic [2*WIDTH - 1:0] R_fix;
-
 always_ff @( posedge clk_i or negedge reset_i ) begin
   if(!reset_i)
     q_o <= 'h0;
   else if(cur_state == DONE)
-    q_o <= Q;
+    q_o <= {{(WIDTH-N){1'b0}}, Q};
 end
 
 always_ff @( posedge clk_i or negedge reset_i ) begin
   if(!reset_i)
     r_o <= 'h0;
   else if(cur_state == DONE)
-    r_o <= /*(R[(WIDTH/2)])? R + {Q,1'b1} : */R;
+    r_o <= {{(WIDTH-REM_W){1'b0}}, R_fix};
 end
 
 always_ff @( posedge clk_i or negedge reset_i ) begin
   if(!reset_i)
-    valid_o = 'h0;
+    valid_o <= 'h0;
   else 
-    valid_o = (cur_state == DONE);
+    valid_o <= (cur_state == DONE);
 end
 
 

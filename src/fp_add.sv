@@ -2,15 +2,7 @@ import fp_pkg::*;
 
 module fp_add
 #(
-    parameter fp_format_e FP_FORMAT = FP32,
-
-    localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT),
-    localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT),
-    localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT),
-
-    localparam int unsigned BIAS = (2**(EXP_WIDTH-1)-1),
-    localparam INF = {{EXP_WIDTH{1'b1}}, {MANT_WIDTH{1'b0}}},
-    localparam R_IND = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}}
+    parameter fp_format_e FP_FORMAT = FP32
 )
 (
     a_i,
@@ -22,7 +14,13 @@ module fp_add
     urnd_result_o
 
 );
-`include "fp_class.sv"
+localparam int unsigned FP_WIDTH   = fp_width(FP_FORMAT);
+localparam int unsigned EXP_WIDTH  = exp_bits(FP_FORMAT);
+localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
+localparam int unsigned BIAS       = (2**(EXP_WIDTH-1)-1);
+localparam INF   = {{EXP_WIDTH{1'b1}}, {MANT_WIDTH{1'b0}}};
+localparam R_IND = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}};
+`include "fp_defs.svh"
 
 input [FP_WIDTH-1:0] a_i;
 input [FP_WIDTH-1:0] b_i;
@@ -41,7 +39,7 @@ logic [1:0] exp_cout_o;
 
 
 logic exp_eq, exp_lt;
-logic mant_eq, mant_lt;
+logic mant_lt;
 logic lt;
 
 logic [EXP_WIDTH-1:0]exp_diff;
@@ -148,7 +146,6 @@ assign denormalB = (a_info.is_subnormal ^ b_info.is_subnormal) & b_info.is_subno
 assign exp_eq = (a_decoded.exp == b_decoded.exp);
 assign exp_lt = (a_decoded.exp < b_decoded.exp);
 
-assign mant_eq = (a_decoded.mant == b_decoded.mant);
 assign mant_lt = (a_decoded.mant < b_decoded.mant);
 
 assign lt = exp_lt | (exp_eq & mant_lt);
