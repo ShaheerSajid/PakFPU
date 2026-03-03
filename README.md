@@ -42,12 +42,15 @@ All latencies are in clock cycles from assertion of `start_i` to assertion of `v
 
 ## Area and Frequency
 
-| Configuration | Area | Frequency |
-|---------------|------|-----------|
-| FP32, DE1-SoC FPGA | TBD | TBD |
-| FP64, DE1-SoC FPGA | TBD | TBD |
-| FP32, TSMC 65nm    | TBD | TBD |
-| FP64, TSMC 65nm    | TBD | TBD |
+Synthesized with Quartus Prime 24.1std for Cyclone V (5CSEMA5F31C6, speed grade 6).
+Fmax is the achievable frequency derived from worst-case slow-corner setup slack at 50 MHz.
+
+| Configuration | ALMs | Registers | DSP Blocks | Fmax (Cyclone V) |
+|---------------|------|-----------|------------|-----------------|
+| FP32, DE1-SoC (Cyclone V) | 2,987 (9%) | 702 | 2 | ~46.6 MHz |
+| FP64, DE1-SoC (Cyclone V) | 5,287 (16%) | 1,133 | 8 | ~40.6 MHz |
+| FP32, TSMC 65nm | TBD | TBD | — | TBD |
+| FP64, TSMC 65nm | TBD | TBD | — | TBD |
 
 ## Usage and Integration
 
