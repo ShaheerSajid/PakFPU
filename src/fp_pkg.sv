@@ -81,9 +81,9 @@ localparam int unsigned FP_FORMAT_BITS = $clog2(NUM_FP_FORMATS);
 
 // FP formats
 typedef enum logic [FP_FORMAT_BITS-1:0] {
-FP32    = 'd0,
-FP48    = 'd1,
-FP64    = 'd2
+FP32    = 2'd0,
+FP48    = 2'd1,
+FP64    = 2'd2
 // add new formats here
 } fp_format_e;
 

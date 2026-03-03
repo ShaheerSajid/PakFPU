@@ -2,15 +2,7 @@ import fp_pkg::*;
 
 module fp_fma
 #(
-    parameter fp_format_e FP_FORMAT = FP32,
-
-    localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT),
-    localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT),
-    localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT),
-
-    localparam int unsigned BIAS = (2**(EXP_WIDTH-1)-1),
-    localparam INF = {{EXP_WIDTH{1'b1}}, {MANT_WIDTH{1'b0}}},
-    localparam R_IND = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}}
+    parameter fp_format_e FP_FORMAT = FP32
 )
 (
     clk_i,
@@ -28,6 +20,12 @@ module fp_fma
     mul_uround_out,
     urnd_result_o
 );
+localparam int unsigned FP_WIDTH   = fp_width(FP_FORMAT);
+localparam int unsigned EXP_WIDTH  = exp_bits(FP_FORMAT);
+localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
+localparam int unsigned BIAS       = (2**(EXP_WIDTH-1)-1);
+localparam INF   = {{EXP_WIDTH{1'b1}}, {MANT_WIDTH{1'b0}}};
+localparam R_IND = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}};
 `include "fp_defs.svh"
 
 input clk_i;
@@ -171,8 +169,9 @@ logic [2*MANT_WIDTH + 2:0] compressed_mant;
 logic new_stickybit;
 
 assign sigB = {1'b1, mul_norm_mant[2*MANT_WIDTH + 1:0]};
+genvar i;
 generate
-    for(genvar i = 0; i <= (2*MANT_WIDTH+2); i= i+1)
+    for(i = 0; i <= (2*MANT_WIDTH+2); i= i+1)
 	begin : combine_sig_mul
         assign compressed_mant[i] = |sigB[i:0];
 	end
@@ -347,15 +346,7 @@ endmodule
 
 module fp_fma_add_unit
 #(
-    parameter fp_format_e FP_FORMAT = FP32,
-
-    localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT),
-    localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT),
-    localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT),
-
-    localparam int unsigned BIAS = (2**(EXP_WIDTH-1)-1),
-    localparam INF = {{EXP_WIDTH{1'b1}}, {MANT_WIDTH{1'b0}}},
-    localparam R_IND = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}}
+    parameter fp_format_e FP_FORMAT = FP32
 )
 (
     a_i,
@@ -372,6 +363,12 @@ module fp_fma_add_unit
     urnd_result_o
 
 );
+localparam int unsigned FP_WIDTH   = fp_width(FP_FORMAT);
+localparam int unsigned EXP_WIDTH  = exp_bits(FP_FORMAT);
+localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
+localparam int unsigned BIAS       = (2**(EXP_WIDTH-1)-1);
+localparam INF   = {{EXP_WIDTH{1'b1}}, {MANT_WIDTH{1'b0}}};
+localparam R_IND = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}};
 `include "fp_defs.svh"
 
 input [FP_WIDTH-1:0] a_i;
@@ -395,7 +392,7 @@ logic [1:0] exp_cout_o;
 
 
 logic exp_eq, exp_lt;
-logic mant_eq, mant_lt;
+logic mant_lt;
 logic lt;
 
 logic [EXP_WIDTH-1:0]exp_diff;
@@ -533,7 +530,6 @@ assign denormalB = (a_info.is_subnormal ^ b_info.is_subnormal) & b_info.is_subno
 assign exp_eq = (a_decoded.exp == b_decoded.exp);
 assign exp_lt = (a_decoded.exp < b_decoded.exp);
 
-assign mant_eq = (a_decoded.mant == b_decoded.mant);
 assign mant_lt = (a_decoded.mant < b_decoded.mant);
 
 assign lt = exp_lt | (exp_eq & mant_lt);

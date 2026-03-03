@@ -52,8 +52,9 @@ logic [1:0] lut [N - 1:0];
 
 genvar i;
 generate
-    for(i = 0; i < N; i=i+1)
-     assign lut[i] = n_i[2*i+1:2*i];
+    for(i = 0; i < N; i=i+1) begin : gen_lut
+        assign lut[i] = n_i[2*i+1:2*i];
+    end
 endgenerate
 
 

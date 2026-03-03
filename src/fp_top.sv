@@ -3,12 +3,7 @@ import fp_pkg::*;
 module fp_top
 #(
     parameter fp_format_e FP_FORMAT = FP32,
-    parameter int_format_e INT_FORMAT = INT32,
-
-    localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT),
-    localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT),
-    localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT),
-    localparam int unsigned INT_WIDTH = int_width(INT_FORMAT)
+    parameter int_format_e INT_FORMAT = INT32
 )
 (
     input clk_i,
@@ -30,6 +25,10 @@ module fp_top
     output logic valid_o,
     output status_t flags_o
 );
+localparam int unsigned FP_WIDTH   = fp_width(FP_FORMAT);
+localparam int unsigned EXP_WIDTH  = exp_bits(FP_FORMAT);
+localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
+localparam int unsigned INT_WIDTH  = int_width(INT_FORMAT);
 `include "fp_defs.svh"
 
 localparam logic [FP_WIDTH-1:0] QNAN_FP = {1'b0, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}};

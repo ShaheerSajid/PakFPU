@@ -3,16 +3,7 @@ import fp_pkg::*;
 module fp_i2f
 #(
     parameter fp_format_e FP_FORMAT = FP32,
-    parameter int_format_e INT_FORMAT = INT32,
-
-
-    localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT),
-    localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT),
-    localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT),
-    localparam int unsigned INT_WIDTH = int_width(INT_FORMAT),
-    localparam int unsigned SHIFT_WIDTH = maximum(FP_WIDTH, INT_WIDTH),
-    localparam int unsigned BIAS = (2**(EXP_WIDTH-1)-1)
-
+    parameter int_format_e INT_FORMAT = INT32
 )
 (
     a_i,
@@ -21,6 +12,12 @@ module fp_i2f
     done_o,
     urnd_result_o
 );
+localparam int unsigned FP_WIDTH    = fp_width(FP_FORMAT);
+localparam int unsigned EXP_WIDTH   = exp_bits(FP_FORMAT);
+localparam int unsigned MANT_WIDTH  = man_bits(FP_FORMAT);
+localparam int unsigned INT_WIDTH   = int_width(INT_FORMAT);
+localparam int unsigned SHIFT_WIDTH = maximum(FP_WIDTH, INT_WIDTH);
+localparam int unsigned BIAS        = (2**(EXP_WIDTH-1)-1);
 `include "fp_defs.svh"
 input [INT_WIDTH-1:0] a_i;
 input start_i;

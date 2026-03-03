@@ -3,24 +3,30 @@ import fp_pkg::*;
 module fp_f2i
 #(
     parameter fp_format_e FP_FORMAT = FP32,
-    parameter int_format_e INT_FORMAT = INT32,
-
-    localparam int unsigned FP_WIDTH = fp_width(FP_FORMAT),
-    localparam int unsigned EXP_WIDTH = exp_bits(FP_FORMAT),
-    localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT),
-    localparam int unsigned INT_WIDTH = int_width(INT_FORMAT),
-    localparam int unsigned BIAS = (2**(EXP_WIDTH-1)-1)
+    parameter int_format_e INT_FORMAT = INT32
 )
 (
-    input [FP_WIDTH-1:0] a_i,
-    input signed_i,
-    input start_i,
-    input roundmode_e rnd_i,
-    output logic [INT_WIDTH-1:0] result_o,
-    output status_t flags_o,
-    output done_o
+    a_i,
+    signed_i,
+    start_i,
+    rnd_i,
+    result_o,
+    flags_o,
+    done_o
 );
+localparam int unsigned FP_WIDTH   = fp_width(FP_FORMAT);
+localparam int unsigned EXP_WIDTH  = exp_bits(FP_FORMAT);
+localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
+localparam int unsigned INT_WIDTH  = int_width(INT_FORMAT);
+localparam int unsigned BIAS       = (2**(EXP_WIDTH-1)-1);
 `include "fp_defs.svh"
+input [FP_WIDTH-1:0] a_i;
+input signed_i;
+input start_i;
+input roundmode_e rnd_i;
+output logic [INT_WIDTH-1:0] result_o;
+output status_t flags_o;
+output done_o;
 logic [MANT_WIDTH+INT_WIDTH-1:0] pre_round_mant;
 logic [INT_WIDTH:0] round_int;
 logic [1:0] rs;
@@ -40,6 +46,7 @@ assign a_info = fp_info(a_i);
 always_comb
 begin
     result_o = 0;
+    flags_o  = '0;
     //unsigned conversion
     if(~signed_i)
     begin
