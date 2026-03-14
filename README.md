@@ -94,7 +94,7 @@ Tested with Berkeley TestFloat (level 1, all 5 rounding modes: RNE RTZ RDN RUP R
 | mul | PASS | PASS | |
 | div | PASS | PASS | |
 | sqrt | PASS | PASS | |
-| mulAdd (FMA) | PASS | — | f64_mulAdd has a known bug; excluded |
+| mulAdd (FMA) | PASS | PASS | |
 | le / eq / lt | PASS | PASS | |
 | f2f conversion | PASS | PASS | f32↔f64 |
 | int→float (i2f) | PASS | PASS | signed/unsigned × 32/64-bit |

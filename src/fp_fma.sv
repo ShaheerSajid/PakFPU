@@ -24,6 +24,7 @@ localparam int unsigned FP_WIDTH   = fp_width(FP_FORMAT);
 localparam int unsigned EXP_WIDTH  = exp_bits(FP_FORMAT);
 localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
 localparam int unsigned BIAS       = (2**(EXP_WIDTH-1)-1);
+localparam fp_format_e  FMA_FMT    = fp_format_e'(fma_format(FP_FORMAT));
 localparam INF   = {{EXP_WIDTH{1'b1}}, {MANT_WIDTH{1'b0}}};
 localparam R_IND = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}};
 `include "fp_defs.svh"
@@ -257,7 +258,7 @@ end
 logic mul_ovf_sig;
 uround_res_fma_t add_result;
 
-fp_fma_add_unit  #(.FP_FORMAT(FP48)) fp_add_inst
+fp_fma_add_unit  #(.FP_FORMAT(FMA_FMT)) fp_add_inst
 (
     .a_i(joined_mul_result_q),
     .b_i({c_decoded_q, {MANT_WIDTH+2{1'b0}}}),

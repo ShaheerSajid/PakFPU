@@ -76,14 +76,15 @@ typedef struct packed {
     int unsigned man_bits;
 } fp_widths_t;
 
-localparam int unsigned NUM_FP_FORMATS = 3; // change me to add formats
+localparam int unsigned NUM_FP_FORMATS = 4; // change me to add formats
 localparam int unsigned FP_FORMAT_BITS = $clog2(NUM_FP_FORMATS);
 
 // FP formats
 typedef enum logic [FP_FORMAT_BITS-1:0] {
 FP32    = 2'd0,
-FP48    = 2'd1,
-FP64    = 2'd2
+FP48    = 2'd1,  // internal FMA format for FP32 (exp=8,  mant=48  = 2×23+2)
+FP64    = 2'd2,
+FP118   = 2'd3   // internal FMA format for FP64 (exp=11, mant=106 = 2×52+2)
 // add new formats here
 } fp_format_e;
 
@@ -99,9 +100,10 @@ typedef enum logic [INT_FORMAT_BITS-1:0] {
 
 // Encodings for supported FP formats
 localparam fp_widths_t [NUM_FP_FORMATS-1:0] FP_ENCODINGS  = '{
-'{11, 52}, // IEEE binary64 (double)
-'{8,  48}, //internal FMA 
-'{8,  23} // IEEE binary32 (single)
+'{11, 106}, // internal FMA format for FP64
+'{11, 52},  // IEEE binary64 (double)
+'{8,  48},  // internal FMA format for FP32
+'{8,  23}   // IEEE binary32 (single)
 // add new formats here
 };
 
@@ -183,6 +185,16 @@ endfunction
   // Returns the number of mantissa bits for a format
 function automatic int unsigned man_bits(fp_format_e fmt);
     return FP_ENCODINGS[fmt].man_bits;
+endfunction
+
+// Returns the internal FMA intermediate format for a given user-facing format.
+// The internal format shares the same exponent width but carries 2*MANT_WIDTH+2
+// mantissa bits to hold the full multiply result before the add stage.
+function automatic int unsigned fma_format(fp_format_e fmt);
+    case (fmt)
+        FP64:    return int'(FP118);
+        default: return int'(FP48);
+    endcase
 endfunction
 
 endpackage
