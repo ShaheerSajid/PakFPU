@@ -1,6 +1,5 @@
-import fp_pkg::*;
-
 module d2f
+import fp_pkg::*;
 (
     a_i,
     urnd_result_o

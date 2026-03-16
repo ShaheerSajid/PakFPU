@@ -1,6 +1,5 @@
-import fp_pkg::*;
-
 module fp_cmp
+import fp_pkg::*;
 #(
     parameter fp_format_e FP_FORMAT = FP32
 )

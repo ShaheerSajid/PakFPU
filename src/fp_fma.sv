@@ -1,6 +1,5 @@
-import fp_pkg::*;
-
 module fp_fma
+import fp_pkg::*;
 #(
     parameter fp_format_e FP_FORMAT = FP32
 )
@@ -346,6 +345,7 @@ endmodule
 
 
 module fp_fma_add_unit
+import fp_pkg::*;
 #(
     parameter fp_format_e FP_FORMAT = FP32
 )

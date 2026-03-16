@@ -359,9 +359,15 @@ questa_sim:
 	vlog -sv -work work +incdir+../src testbench/tb.sv
 	vsim -t 1ps -L work -voptargs="+acc" tb -do "do wave.do; run -all; exit"
 	
-verilator_sim:
-	echo "Compiling Testbench"
-	verilator \
+RISCV_MODE ?= 0
+
+SIM_DIR        := $(abspath .)
+REF_MODEL_LIB  := $(SIM_DIR)/ref_model/librefmodel.a
+REF_MODEL_INC  := $(SIM_DIR)/ref_model
+SOFTFLOAT_INC  := $(SIM_DIR)/ref_model/softfloat/source/include
+SOFTFLOAT_LIB  := $(SIM_DIR)/ref_model/softfloat/build/Linux-x86_64-GCC/softfloat.a
+
+VERILATOR_COMMON_FLAGS = \
 	-Wno-WIDTH \
 	-Wno-PINMISSING \
 	-O$(VERILATOR_OPT) \
@@ -371,19 +377,69 @@ verilator_sim:
 	-GINT_FORMAT_I=$(INT_FORMAT) \
 	-GOP_SEL_I=$(OP_SEL) \
 	-GOP_MODIFY_I=$(OP_MODIFY) \
+	-GRISCV_MODE_I=$(RISCV_MODE) \
 	-sv --top-module tb \
 	--cc \
 	+incdir+../src \
 	-f src.args \
-	testbench/tb.sv \
-	--exe testbench/main.cpp
-	make -s -j -C obj_dir/ -f Vtb.mk Vtb OBJCACHE=
-	echo "Running Testbench"
-	echo "Config: OP_SEL=$(OP_SEL) OP_MODIFY=$(OP_MODIFY) FP_FORMAT=$(FP_FORMAT) INT_FORMAT=$(INT_FORMAT) TRACE=$(TRACE)"
-	echo "Input: TEST_FILE=$(TEST_FILE) ROUND_MODE=$(ROUND_MODE) NUM_INPUTS=$(NUM_INPUTS) RESULT_BITS=$(RESULT_BITS) CHECK_FLAGS=$(CHECK_FLAGS)"
-	echo -n "${TEST} run: "
-	echo "${TEST} run Errors" >> err.txt
-	obj_dir/Vtb $(TEST_FILE) $(ROUND_MODE) $(NUM_INPUTS) $(RESULT_BITS) $(CHECK_FLAGS) 2>> err.txt
+	testbench/tb.sv
+
+verilator_sim:
+	echo "Compiling Testbench"
+	verilator $(VERILATOR_COMMON_FLAGS) --exe testbench/main.cpp
+	$(MAKE) -s -j -C obj_dir/ -f Vtb.mk Vtb OBJCACHE=
+	@echo "Running Testbench"
+	@echo "Config: OP_SEL=$(OP_SEL) OP_MODIFY=$(OP_MODIFY) FP_FORMAT=$(FP_FORMAT) INT_FORMAT=$(INT_FORMAT) TRACE=$(TRACE)"
+	@echo "Input: TEST_FILE=$(TEST_FILE) ROUND_MODE=$(ROUND_MODE) NUM_INPUTS=$(NUM_INPUTS) RESULT_BITS=$(RESULT_BITS) CHECK_FLAGS=$(CHECK_FLAGS)"
+	obj_dir/Vtb $(TEST_FILE) $(ROUND_MODE) $(NUM_INPUTS) $(RESULT_BITS) $(CHECK_FLAGS)
+
+# Ref-model testbench: uses inline SoftFloat instead of pre-generated vectors.
+# Supports --riscv flag for RISC-V mode verification.
+verilator_refmodel_sim: ref_model
+	echo "Compiling ref-model testbench"
+	verilator $(VERILATOR_COMMON_FLAGS) \
+	    --exe testbench/main_refmodel.cpp \
+	    -CFLAGS "-I$(REF_MODEL_INC) -I$(SOFTFLOAT_INC) -DSOFTFLOAT_FAST_INT64" \
+	    -LDFLAGS "$(REF_MODEL_LIB) $(SOFTFLOAT_LIB)"
+	$(MAKE) -s -j -C obj_dir/ -f Vtb.mk Vtb OBJCACHE=
+	@echo "Running ref-model testbench"
+	@echo "Config: RM=$(ROUND_MODE) FP=$(FP_FORMAT) INT=$(INT_FORMAT) OP=$(OP_SEL) MOD=$(OP_MODIFY) RISCV=$(RISCV_MODE)"
+	@echo "Input: $(TEST_FILE)  num_inputs=$(NUM_INPUTS) result_bits=$(RESULT_BITS)"
+	@RISCV_FLAG=$$([ "$(RISCV_MODE)" = "1" ] && echo "--riscv" || echo ""); \
+	 NOFLAGS=$$([ "$(CHECK_FLAGS)" = "0" ] && echo "--no-flags" || echo ""); \
+	 obj_dir/Vtb $(ROUND_MODE) $(FP_FORMAT) $(INT_FORMAT) $(OP_SEL) $(OP_MODIFY) \
+	             $(NUM_INPUTS) $(RESULT_BITS) $$RISCV_FLAG $$NOFLAGS $(TEST_FILE)
+
+# ---------------------------------------------------------------------------
+# Directed special-value tests (no pre-generated vectors needed)
+# ---------------------------------------------------------------------------
+# Usage: make directed-fp32        — all ops, FP32, IEEE 754 mode
+#        make directed-fp32-riscv  — all ops, FP32, RISC-V mode
+#        make directed-fp64        — all ops, FP64, IEEE 754 mode
+#        make directed-fp32 OP=add — single operation
+
+DIRECTED_OP  ?= all
+DIRECTED_RM  ?= 0
+
+directed-fp32: verilator_sim
+	@python3 directed/gen_directed.py --fmt fp32 --op $(DIRECTED_OP) \
+	    --rm $(DIRECTED_RM) --no-flags 2>/dev/null | \
+	  obj_dir/Vtb /dev/stdin $(DIRECTED_RM) 2 1 32 0
+
+directed-fp32-riscv: verilator_sim
+	@python3 directed/gen_directed.py --fmt fp32 --op $(DIRECTED_OP) \
+	    --rm $(DIRECTED_RM) --riscv --no-flags 2>/dev/null | \
+	  obj_dir/Vtb /dev/stdin $(DIRECTED_RM) 2 1 32 0
+
+directed-fp64: verilator_sim
+	@python3 directed/gen_directed.py --fmt fp64 --op $(DIRECTED_OP) \
+	    --rm $(DIRECTED_RM) --no-flags 2>/dev/null | \
+	  obj_dir/Vtb /dev/stdin $(DIRECTED_RM) 2 2 64 0
+
+directed-nanbox: verilator_sim
+	@python3 directed/gen_directed.py --fmt fp32 --op nanbox \
+	    --riscv 2>/dev/null | \
+	  obj_dir/Vtb /dev/stdin 0 2 1 32 0
 	
 	
 # Run verilator across all 5 rounding modes for the given TEST.
@@ -392,6 +448,13 @@ verilator_all_rnd: gen_test
 	@for rm in 0 1 2 3 4; do \
 	  $(MAKE) -s verilator_sim TEST=$(TEST) ROUND_MODE=$$rm LEVEL=$(LEVEL) TRACE=$(TRACE); \
 	done
+
+# ---------------------------------------------------------------------------
+# Reference model build
+# ---------------------------------------------------------------------------
+.PHONY: ref_model
+ref_model:
+	$(MAKE) -C ref_model
 
 .PHONY: help
 help:
@@ -402,6 +465,11 @@ help:
 	@echo "  verilator         gen_test + Verilator compile + run (single rounding mode)"
 	@echo "  verilator_all_rnd gen_test + Verilator run across all 5 rounding modes"
 	@echo "  questa            gen_test + QuestaSim compile + run"
+	@echo "  directed-fp32     Directed special-value tests, FP32, IEEE 754 mode"
+	@echo "  directed-fp32-riscv Directed special-value tests, FP32, RISC-V mode"
+	@echo "  directed-fp64     Directed special-value tests, FP64, IEEE 754 mode"
+	@echo "  directed-nanbox   NaN boxing tests (RISC-V mode)"
+	@echo "  ref_model         Build Berkeley SoftFloat + C++ reference model"
 	@echo "  clean             Remove generated files"
 	@echo ""
 	@echo "Key variables (defaults shown):"
@@ -410,11 +478,19 @@ help:
 	@echo "  LEVEL=1           TestFloat generation level (1 or 2)"
 	@echo "  TRACE=0           1 to enable waveform dump"
 	@echo "  VERILATOR_OPT=2   Verilator optimisation level (0-3)"
+	@echo "  RISCV_MODE=0      1 to enable RISC-V NaN boxing / canonical NaN"
+	@echo "  DIRECTED_OP=all   Operation for directed tests (add/sub/mul/...)"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make verilator TEST=f32_div ROUND_MODE=0 LEVEL=1"
 	@echo "  make verilator TEST=f64_mul ROUND_MODE=0 LEVEL=2 TRACE=1"
 	@echo "  make verilator_all_rnd TEST=f32_sqrt LEVEL=1"
+	@echo "  make directed-fp32                          # all special-value combos"
+	@echo "  make directed-fp32-riscv                    # with RISC-V semantics"
+	@echo "  make directed-fp32 DIRECTED_OP=min          # FMIN only"
+	@echo ""
+	@echo "Formal verification (requires SymbiYosys):"
+	@echo "  cd formal && sby -f fp_top.sby"
 	@echo ""
 	@echo "Supported TEST keywords (auto-decoded):"
 	@echo "  Arithmetic : f32_add f32_sub f32_mul f32_div f32_sqrt  (and f64_* variants)"
@@ -435,6 +511,13 @@ questa: gen_test questa_sim
 
 .PHONY: verilator
 verilator: gen_test verilator_sim
+
+# sim-ref: generate test vectors then run with inline SoftFloat reference model.
+# Use TEST=<keyword> exactly like 'verilator', e.g.:
+#   make sim-ref TEST=f32_add ROUND_MODE=0
+#   make sim-ref TEST=f32_add ROUND_MODE=0 RISCV_MODE=1
+.PHONY: sim-ref
+sim-ref: gen_test verilator_refmodel_sim
 
 .PHONY: clean
 clean:

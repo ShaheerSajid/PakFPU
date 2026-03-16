@@ -1,6 +1,5 @@
-import fp_pkg::*;
-
 module f2d
+import fp_pkg::*;
 (
     a_i,
     rnd_result_o

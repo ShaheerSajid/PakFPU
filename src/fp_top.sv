@@ -1,9 +1,18 @@
-import fp_pkg::*;
-
 module fp_top
+import fp_pkg::*;
 #(
-    parameter fp_format_e FP_FORMAT = FP32,
-    parameter int_format_e INT_FORMAT = INT32
+    parameter fp_format_e  FP_FORMAT   = FP32,
+    parameter int_format_e INT_FORMAT  = INT32,
+    // When RISCV_MODE=1:
+    //   - NaN boxing enforced on FP32 inputs (upper 32 bits must be 0xFFFFFFFF)
+    //   - All NaN outputs replaced with the canonical quiet NaN
+    //   - FMIN/FMAX return the non-NaN operand when exactly one input is NaN
+    //     (IEEE 754-2008 minNum/maxNum, required by the RISC-V ISA spec)
+    // When RISCV_MODE=0 (IEEE 754-2019 general):
+    //   - Inputs accepted as-is regardless of upper bits
+    //   - NaN payload preserved in results
+    //   - FMIN/FMAX propagate NaN when either operand is NaN
+    parameter logic        RISCV_MODE  = 1'b0
 )
 (
     input clk_i,
@@ -41,9 +50,21 @@ fp_encoding_t b_decoded;
 logic [FP_WIDTH-1:0] a_fp;
 logic [FP_WIDTH-1:0] b_fp;
 logic [FP_WIDTH-1:0] c_fp;
-assign a_fp = a_i[FP_WIDTH-1:0];
-assign b_fp = b_i[FP_WIDTH-1:0];
-assign c_fp = c_i[FP_WIDTH-1:0];
+
+// NaN boxing (RISC-V ISA spec §11.2): for FP32 operations the upper 32 bits of
+// each 64-bit register must be all-1s. If not, the value is treated as the
+// canonical quiet NaN.  In IEEE 754 general mode inputs pass through unchanged.
+generate
+    if (RISCV_MODE && FP_FORMAT == FP32) begin : gen_nanbox
+        assign a_fp = (a_i[63:32] == 32'hFFFF_FFFF) ? a_i[31:0] : QNAN_FP;
+        assign b_fp = (b_i[63:32] == 32'hFFFF_FFFF) ? b_i[31:0] : QNAN_FP;
+        assign c_fp = (c_i[63:32] == 32'hFFFF_FFFF) ? c_i[31:0] : QNAN_FP;
+    end else begin : gen_no_nanbox
+        assign a_fp = a_i[FP_WIDTH-1:0];
+        assign b_fp = b_i[FP_WIDTH-1:0];
+        assign c_fp = c_i[FP_WIDTH-1:0];
+    end
+endgenerate
 assign a_decoded = a_fp;
 assign b_decoded = b_fp;
 
@@ -66,6 +87,9 @@ logic longop_busy_q;
 logic longop_sqrt_q;
 roundmode_e longop_rnd_q;
 
+logic fma_busy_q;
+roundmode_e fma_rnd_q;
+
 logic accept_start;
 logic fdv_start;
 
@@ -82,7 +106,7 @@ logic sgnj_start;
 logic fma_start;
 logic f2f_start;
 
-assign ready_o = ~longop_busy_q;
+assign ready_o = ~longop_busy_q & ~fma_busy_q;
 assign accept_start = start_i & ready_o;
 
 assign add_start = accept_start & (op_i == FADD);
@@ -113,6 +137,23 @@ always_ff @(posedge clk_i or negedge rst_i) begin
             longop_rnd_q <= rnd_i;
         end else if ((longop_sqrt_q && sqrt_done) || (~longop_sqrt_q && div_done)) begin
             longop_busy_q <= 1'b0;
+        end
+    end
+end
+
+// FMADD has 1-cycle pipeline latency (done_o fires one cycle after start_i).
+// Block ready_o for that cycle so no other operation can clobber op_sel and
+// cause the arbiter to miss capturing the FMADD result.
+always_ff @(posedge clk_i or negedge rst_i) begin
+    if (!rst_i) begin
+        fma_busy_q <= 1'b0;
+        fma_rnd_q  <= RNE;
+    end else begin
+        if (fma_start) begin
+            fma_busy_q <= 1'b1;
+            fma_rnd_q  <= rnd_i;
+        end else if (fma_done) begin
+            fma_busy_q <= 1'b0;
         end
     end
 end
@@ -309,12 +350,18 @@ always_comb begin
     minmax_flags = '0;
     minmax_flags.NV = a_info.is_signalling | b_info.is_signalling;
 
-    if (a_info.is_nan && b_info.is_nan) begin
-        minmax_result = QNAN_FP;
-    end else if (a_info.is_nan) begin
-        minmax_result = b_fp;
-    end else if (b_info.is_nan) begin
-        minmax_result = a_fp;
+    // NaN handling:
+    //   RISCV_MODE=1 (IEEE 754-2008 minNum/maxNum): return the non-NaN operand
+    //     when exactly one input is NaN; both-NaN → canonical qNaN.
+    //   RISCV_MODE=0 (IEEE 754-2019 minimum/maximum): propagate NaN whenever
+    //     either operand is NaN.
+    if (a_info.is_nan || b_info.is_nan) begin
+        if (RISCV_MODE && a_info.is_nan && !b_info.is_nan)
+            minmax_result = b_fp;
+        else if (RISCV_MODE && b_info.is_nan && !a_info.is_nan)
+            minmax_result = a_fp;
+        else
+            minmax_result = QNAN_FP;
     end else if (a_info.is_zero && b_info.is_zero) begin
         minmax_result = '0;
         if (op_i == FMIN) begin
@@ -377,7 +424,7 @@ float_op_e op_sel;
 logic fdv_sqrt_sel;
 roundmode_e rnd_sel;
 
-assign op_sel = longop_busy_q ? FDIV : op_i;
+assign op_sel = longop_busy_q ? FDIV : (fma_busy_q ? FMADD : op_i);
 assign fdv_sqrt_sel = longop_busy_q ? longop_sqrt_q : op_modify_i[0];
 
 uround_res_t urnd_sel;
@@ -435,6 +482,9 @@ always_comb begin
             mul_ovf_sel = fma_mul_ovf;
             mul_uf_sel = fma_mul_uf;
             mul_uround_out_sel = fma_mul_uround_out;
+            // Use the rnd mode captured at acceptance time; rnd_i may have
+            // changed by the cycle fma_done fires.
+            rnd_sel = fma_busy_q ? fma_rnd_q : rnd_i;
         end
         F2F: begin
             done_sel = f2f_done;
@@ -548,6 +598,18 @@ assign fma_uf_fix1 = (urnd_q.u_result.exp == '0) &
                      (rnd_result.result.exp == {{EXP_WIDTH-1{1'b0}}, 1'b1}) &
                      mul_uround_out_q;
 
+// ops whose output is an FP value (not integer / comparison bit / class mask)
+logic result_is_fp;
+fp_info_t raw_fp_info;
+assign result_is_fp = need_rnd_q
+                    | (op_q == FMIN) | (op_q == FMAX)
+                    | (op_q == FSGNJ)
+                    | (op_q == F2F);
+
+logic [FP_WIDTH-1:0] raw_fp_result;
+assign raw_fp_result = need_rnd_q ? rnd_result.result
+                                  : direct_result_q[FP_WIDTH-1:0];
+
 always_comb begin
     result_o = '0;
     flags_o = '0;
@@ -570,6 +632,13 @@ always_comb begin
     end
 
     flags_o.DZ = flags_o.DZ | dz_q;
+
+    // Canonical NaN (RISC-V): replace any NaN FP result with the format's
+    // canonical quiet NaN.  Flags are left unchanged — the NV bit was already
+    // set by the unit that produced the NaN.
+    raw_fp_info = fp_info(raw_fp_result);
+    if (RISCV_MODE && result_is_fp && raw_fp_info.is_nan)
+        result_o = {{(64-FP_WIDTH){1'b0}}, QNAN_FP};
 end
 
 endmodule

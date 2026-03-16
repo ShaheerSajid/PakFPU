@@ -70,12 +70,6 @@ typedef enum logic[3:0] {
 } float_op_e;
 
 
-// Encoding for a format
-typedef struct packed {
-    int unsigned exp_bits;
-    int unsigned man_bits;
-} fp_widths_t;
-
 localparam int unsigned NUM_FP_FORMATS = 4; // change me to add formats
 localparam int unsigned FP_FORMAT_BITS = $clog2(NUM_FP_FORMATS);
 
@@ -98,14 +92,6 @@ typedef enum logic [INT_FORMAT_BITS-1:0] {
     // add new formats here
 } int_format_e;
 
-// Encodings for supported FP formats
-localparam fp_widths_t [NUM_FP_FORMATS-1:0] FP_ENCODINGS  = '{
-'{11, 106}, // internal FMA format for FP64
-'{11, 52},  // IEEE binary64 (double)
-'{8,  48},  // internal FMA format for FP32
-'{8,  23}   // IEEE binary32 (single)
-// add new formats here
-};
 
 // Fixed-width encodings for FP32/FP64, used by cross-format conversion
 // modules (f2d, d2f) and any code that needs format-specific types without
@@ -125,66 +111,78 @@ typedef struct packed {
 function automatic fp_info_t fp32_info(input logic [31:0] val);
     fp_info_t info;
     fp32_encoding_t decoded;
-    begin
-        decoded = val;
-        info = '0;
-        info.is_minus       = decoded.sign;
-        info.is_normal      = (decoded.exp >= 8'd1) && (decoded.exp <= 8'd254);
-        info.is_subnormal   = (decoded.exp == 8'd0) && (decoded.mant != '0);
-        info.is_zero        = (decoded.exp == '0) && (decoded.mant == '0);
-        info.is_inf         = (decoded.exp == 8'hff) && (decoded.mant == '0);
-        info.is_nan         = (decoded.exp == 8'hff) && (decoded.mant != '0);
-        info.is_signalling  = info.is_nan && !decoded.mant[22];
-        info.is_quiet       = info.is_nan && decoded.mant[22];
-        info.is_finite      = info.is_zero | info.is_subnormal | info.is_normal;
-        info.is_canonical   = info.is_finite | info.is_inf | info.is_quiet;
-        return info;
-    end
+    decoded = val;
+    info = '0;
+    info.is_minus       = decoded.sign;
+    info.is_normal      = (decoded.exp >= 8'd1) && (decoded.exp <= 8'd254);
+    info.is_subnormal   = (decoded.exp == 8'd0) && (decoded.mant != '0);
+    info.is_zero        = (decoded.exp == '0) && (decoded.mant == '0);
+    info.is_inf         = (decoded.exp == 8'hff) && (decoded.mant == '0);
+    info.is_nan         = (decoded.exp == 8'hff) && (decoded.mant != '0);
+    info.is_signalling  = info.is_nan && !decoded.mant[22];
+    info.is_quiet       = info.is_nan && decoded.mant[22];
+    info.is_finite      = info.is_zero | info.is_subnormal | info.is_normal;
+    info.is_canonical   = info.is_finite | info.is_inf | info.is_quiet;
+    fp32_info = info;
 endfunction
 
 function automatic fp_info_t fp64_info(input logic [63:0] val);
     fp_info_t info;
     fp64_encoding_t decoded;
-    begin
-        decoded = val;
-        info = '0;
-        info.is_minus       = decoded.sign;
-        info.is_normal      = (decoded.exp >= 11'd1) && (decoded.exp <= 11'd2046);
-        info.is_subnormal   = (decoded.exp == 11'd0) && (decoded.mant != '0);
-        info.is_zero        = (decoded.exp == '0) && (decoded.mant == '0);
-        info.is_inf         = (decoded.exp == 11'h7ff) && (decoded.mant == '0);
-        info.is_nan         = (decoded.exp == 11'h7ff) && (decoded.mant != '0);
-        info.is_signalling  = info.is_nan && !decoded.mant[51];
-        info.is_quiet       = info.is_nan && decoded.mant[51];
-        info.is_finite      = info.is_zero | info.is_subnormal | info.is_normal;
-        info.is_canonical   = info.is_finite | info.is_inf | info.is_quiet;
-        return info;
-    end
+    decoded = val;
+    info = '0;
+    info.is_minus       = decoded.sign;
+    info.is_normal      = (decoded.exp >= 11'd1) && (decoded.exp <= 11'd2046);
+    info.is_subnormal   = (decoded.exp == 11'd0) && (decoded.mant != '0);
+    info.is_zero        = (decoded.exp == '0) && (decoded.mant == '0);
+    info.is_inf         = (decoded.exp == 11'h7ff) && (decoded.mant == '0);
+    info.is_nan         = (decoded.exp == 11'h7ff) && (decoded.mant != '0);
+    info.is_signalling  = info.is_nan && !decoded.mant[51];
+    info.is_quiet       = info.is_nan && decoded.mant[51];
+    info.is_finite      = info.is_zero | info.is_subnormal | info.is_normal;
+    info.is_canonical   = info.is_finite | info.is_inf | info.is_quiet;
+    fp64_info = info;
 endfunction
 
 function automatic int maximum(int a, int b);
-    return (a > b) ? a : b;
-  endfunction
+    if (a > b) maximum = a;
+    else        maximum = b;
+endfunction
 
 function automatic int unsigned int_width(int_format_e ifmt);
-    unique case (ifmt)
-        INT32: return 32;
-        INT64: return 64;
-        default: return 32;
+    case (ifmt)
+        INT32:   int_width = 32;
+        INT64:   int_width = 64;
+        default: int_width = 32;
     endcase
 endfunction
 
 function automatic int unsigned fp_width(fp_format_e fmt);
-    return FP_ENCODINGS[fmt].exp_bits + FP_ENCODINGS[fmt].man_bits + 1;
+    case (fmt)
+        FP32:    fp_width = 32;
+        FP48:    fp_width = 57;
+        FP64:    fp_width = 64;
+        FP118:   fp_width = 118;
+        default: fp_width = 32;
+    endcase
 endfunction
 
 function automatic int unsigned exp_bits(fp_format_e fmt);
-    return FP_ENCODINGS[fmt].exp_bits;
+    case (fmt)
+        FP64:    exp_bits = 11;
+        FP118:   exp_bits = 11;
+        default: exp_bits = 8;
+    endcase
 endfunction
 
-  // Returns the number of mantissa bits for a format
 function automatic int unsigned man_bits(fp_format_e fmt);
-    return FP_ENCODINGS[fmt].man_bits;
+    case (fmt)
+        FP32:    man_bits = 23;
+        FP48:    man_bits = 48;
+        FP64:    man_bits = 52;
+        FP118:   man_bits = 106;
+        default: man_bits = 23;
+    endcase
 endfunction
 
 // Returns the internal FMA intermediate format for a given user-facing format.
@@ -192,8 +190,8 @@ endfunction
 // mantissa bits to hold the full multiply result before the add stage.
 function automatic int unsigned fma_format(fp_format_e fmt);
     case (fmt)
-        FP64:    return int'(FP118);
-        default: return int'(FP48);
+        FP64:    fma_format = int'(FP118);
+        default: fma_format = int'(FP48);
     endcase
 endfunction
 

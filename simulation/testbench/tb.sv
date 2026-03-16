@@ -17,15 +17,17 @@ module tb
 `endif
 ;
 
-parameter int unsigned FP_FORMAT_I = 0;
+parameter int unsigned FP_FORMAT_I  = 0;
 parameter int unsigned INT_FORMAT_I = 0;
-parameter int unsigned OP_SEL_I = 2;
-parameter int unsigned OP_MODIFY_I = 0;
+parameter int unsigned OP_SEL_I     = 2;
+parameter int unsigned OP_MODIFY_I  = 0;
+parameter int unsigned RISCV_MODE_I = 0;  // 1 = RISC-V mode, 0 = IEEE 754-2019
 
-localparam fp_format_e FP_FORMAT = fp_format_e'(FP_FORMAT_I);
+localparam fp_format_e  FP_FORMAT  = fp_format_e'(FP_FORMAT_I);
 localparam int_format_e INT_FORMAT = int_format_e'(INT_FORMAT_I);
-localparam float_op_e OP_SEL = float_op_e'(OP_SEL_I);
-localparam logic [1:0] OP_MODIFY = OP_MODIFY_I[1:0];
+localparam float_op_e   OP_SEL     = float_op_e'(OP_SEL_I);
+localparam logic [1:0]  OP_MODIFY  = OP_MODIFY_I[1:0];
+localparam logic        RISCV_MODE = logic'(RISCV_MODE_I[0]);
 
 logic [63:0] dut_a;
 logic [63:0] dut_b;
@@ -69,8 +71,9 @@ assign flags_o = dut_flags;
 `endif
 
 fp_top #(
-    .FP_FORMAT(FP_FORMAT),
-    .INT_FORMAT(INT_FORMAT)
+    .FP_FORMAT (FP_FORMAT),
+    .INT_FORMAT(INT_FORMAT),
+    .RISCV_MODE(RISCV_MODE)
 ) dut
 (
     .clk_i(clk),

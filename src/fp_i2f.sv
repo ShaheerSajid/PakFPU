@@ -1,6 +1,5 @@
-import fp_pkg::*;
-
 module fp_i2f
+import fp_pkg::*;
 #(
     parameter fp_format_e FP_FORMAT = FP32,
     parameter int_format_e INT_FORMAT = INT32

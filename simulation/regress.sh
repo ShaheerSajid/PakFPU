@@ -50,8 +50,7 @@ section "F64 Arithmetic"
 for op in f64_add f64_sub f64_mul f64_div f64_sqrt; do run_op "$op"; done
 
 section "FMA"
-# f64_mulAdd has a known pre-existing bug; excluded until fixed.
-run_op f32_mulAdd
+for op in f32_mulAdd f64_mulAdd; do run_op "$op"; done
 
 section "Compare (F32 + F64)"
 for op in f32_le f32_eq f32_lt f64_le f64_eq f64_lt; do run_op "$op"; done
