@@ -94,13 +94,13 @@ Tested with Berkeley TestFloat (level 1, all 5 rounding modes: RNE RTZ RDN RUP R
 | mul | PASS | PASS | |
 | div | PASS | PASS | |
 | sqrt | PASS | PASS | |
-| mulAdd (FMA) | PASS | — | f64_mulAdd has a known bug; excluded |
+| mulAdd (FMA) | PASS | PASS | f64_mulAdd fix in dev branch |
 | le / eq / lt | PASS | PASS | |
 | f2f conversion | PASS | PASS | f32↔f64 |
 | int→float (i2f) | PASS | PASS | signed/unsigned × 32/64-bit |
 | float→int (f2i) | PASS | PASS | signed/unsigned × 32/64-bit |
-| min / max | — | — | No testfloat_gen reference vectors |
-| classify | — | — | No testfloat_gen reference vectors |
+| min / max | PASS | PASS | Directed special-value tests (no testfloat_gen vectors) |
+| classify | PASS | PASS | Directed special-value tests (no testfloat_gen vectors) |
 | mulSub / negMulAdd / negMulSub | — | — | No testfloat_gen reference vectors |
 | rem | — | — | Not implemented |
 
@@ -108,11 +108,30 @@ Tested with Berkeley TestFloat (level 1, all 5 rounding modes: RNE RTZ RDN RUP R
 
 ## Simulation (Verilator)
 
-### Quick start
+All simulation targets are available from the repo root.
+
+### Single run
 
 ```bash
-make -C simulation verilator TEST=f32_div ROUND_MODE=0 LEVEL=1
+make sim TEST=f32_div ROUND_MODE=0 LEVEL=1
 ```
+
+### All rounding modes for one operation
+
+```bash
+make sim-all TEST=f32_sqrt
+```
+
+### Full regression
+
+```bash
+make sim-regress          # level 1, ~2 min
+make sim-regress LEVEL=2  # level 2, more thorough
+```
+
+Runs 176 Berkeley TestFloat tests (all ops × 5 rounding modes) plus directed
+special-value tests for min/max/classify. Exit code is 0 on full pass, 1 on any
+failure. Failures are logged to `simulation/regress_failures.txt`.
 
 ### Variables
 
@@ -121,41 +140,44 @@ make -C simulation verilator TEST=f32_div ROUND_MODE=0 LEVEL=1
 | `TEST` | `f32_add` | Berkeley TestFloat operation keyword |
 | `ROUND_MODE` | `1` | `0`=RNE `1`=RTZ `2`=RDN `3`=RUP `4`=RMM |
 | `LEVEL` | `1` | TestFloat generation thoroughness (1 or 2) |
-| `TRACE` | `0` | Set to `1` to enable waveform dump |
+| `TRACE` | `0` | Set to `1` to enable waveform dump (writes `*.vcd`) |
 | `VERILATOR_OPT` | `2` | Verilator optimisation level (0–3) |
 
 > **Do not pass `RM=<value>`** on the command line. `RM` is a GNU Make built-in variable used for file removal; overriding it breaks the recursive Verilator build step. Use `ROUND_MODE` instead.
 
-### Run all rounding modes
-
-```bash
-make -C simulation verilator_all_rnd TEST=f32_sqrt LEVEL=1
-```
-
-### Show all options
+### Show all simulation options
 
 ```bash
 make -C simulation help
 ```
 
-### Run the full regression
+## Formal Verification (SymbiYosys)
 
-A script that replicates the [Verification Status](#verification-status) table is provided:
+Properties are in `simulation/formal/fp_props.sv`. The flow uses `sv2v` to pre-process the RTL, then runs SymbiYosys in BMC mode (depth 32) with the Bitwuzla solver.
 
 ```bash
-cd simulation
-./regress.sh          # level 1 (default, ~2 min)
-./regress.sh 2        # level 2 (more thorough, slower)
+make formal   # requires sv2v and sby/bitwuzla
 ```
 
-It runs all 35 operations across all 5 rounding modes (175 test runs total). Exit code is 0 on
-full pass, 1 on any failure. Failures are detailed in `simulation/regress_failures.txt`.
+Properties verified (FP32 + FP64, RISC-V mode):
+
+| ID | Property |
+|----|----------|
+| P1 | sNaN input always raises the Invalid (NV) flag |
+| P2 | Any NaN result is canonical qNaN (`0x7FC00000`) |
+| P3 | FSGNJ never raises any flags |
+| P4 | FCLASS never raises any flags |
+| P5 | Division by zero raises DZ, not NV |
+| P6 | NaN-box violation produces canonical qNaN |
+| P7 | ±Inf × ±0 raises NV |
+| P8 | `valid_o` is a single-cycle pulse |
+| P9 | `ready_o` deasserts the cycle after FDIV is accepted |
 
 ## Source file list
 
 The file `simulation/src.args` lists all RTL source files compiled by both Verilator and QuestaSim. When adding a new module, append it there.
 
-Experimental / work-in-progress modules live in `src/wip/` and are not included in `src.args`.
+All modules in `src/` are included in `src.args` and are part of the verified design.
 
 ## Contribute
 

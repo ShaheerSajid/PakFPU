@@ -1,6 +1,34 @@
-import fp_pkg::*;
+// fp_fma — IEEE 754 fused multiply-add  (a × b + c)
+//
+// Algorithm: two-stage pipeline — multiply then add in a widened format.
+//
+//   Stage 1 (cycle 0 — multiply, registered at posedge):
+//     Computes a × b in the same style as fp_mul but retains the full
+//     (2*MANT+2)-bit product mantissa without rounding.  The result is
+//     stored in joined_mul_result_q (FP_WIDTH_ADDER bits wide).
+//
+//   Stage 2 (cycle 1 — add, combinational → output):
+//     fp_fma_add_unit adds joined_mul_result_q to c (zero-extended to the
+//     same wider format) and produces the unrounded FMA result.
+//
+// Why the widened intermediate format (MANT_WIDTH_ADDER = 2*MANT_WIDTH + 2)?
+//   IEEE 754-2008 §5.1 requires that a fused operation be computed as if to
+//   infinite precision before a single final rounding.  Rounding the multiply
+//   product before adding c (as a non-fused a×b+c would) can produce a
+//   doubly-rounded result that differs from the correctly-rounded FMA.
+//   Keeping the full 2*MANT+2 product bits into the adder avoids this.
+//
+//   For FP32: MANT_WIDTH_ADDER = 48, FP_WIDTH_ADDER = 57 (1+8+48)
+//   For FP64: MANT_WIDTH_ADDER = 106, FP_WIDTH_ADDER = 118 (1+11+106)
+//   The fp_pkg::fma_format() lookup returns FP48 / FP118 respectively,
+//   which fp_fma_add_unit uses to size its internal signals.
+//
+// Latency: 2 cycles (stage 1 register + regwall in fp_top + rounding = 3 total).
+// Special cases: handled per-stage; invalid combinations (Inf×0+c, etc.)
+//   detected in the pre-check blocks after each stage.
 
 module fp_fma
+import fp_pkg::*;
 #(
     parameter fp_format_e FP_FORMAT = FP32
 )
@@ -24,6 +52,7 @@ localparam int unsigned FP_WIDTH   = fp_width(FP_FORMAT);
 localparam int unsigned EXP_WIDTH  = exp_bits(FP_FORMAT);
 localparam int unsigned MANT_WIDTH = man_bits(FP_FORMAT);
 localparam int unsigned BIAS       = (2**(EXP_WIDTH-1)-1);
+localparam fp_format_e  FMA_FMT    = fp_format_e'(fma_format(FP_FORMAT));
 localparam INF   = {{EXP_WIDTH{1'b1}}, {MANT_WIDTH{1'b0}}};
 localparam R_IND = {1'b1, {EXP_WIDTH{1'b1}}, 1'b1, {MANT_WIDTH-1{1'b0}}};
 `include "fp_defs.svh"
@@ -257,7 +286,7 @@ end
 logic mul_ovf_sig;
 uround_res_fma_t add_result;
 
-fp_fma_add_unit  #(.FP_FORMAT(FP48)) fp_add_inst
+fp_fma_add_unit  #(.FP_FORMAT(FMA_FMT)) fp_add_inst
 (
     .a_i(joined_mul_result_q),
     .b_i({c_decoded_q, {MANT_WIDTH+2{1'b0}}}),
@@ -345,6 +374,7 @@ endmodule
 
 
 module fp_fma_add_unit
+import fp_pkg::*;
 #(
     parameter fp_format_e FP_FORMAT = FP32
 )

@@ -1,0 +1,50 @@
+# Makefile.formal — build fp_rtl.v via sv2v then run SymbiYosys
+#
+# Runs two formal checks in sequence:
+#   fp_top.sby      — FP32, RISCV_MODE=1, BMC depth 32 (9 properties)
+#   fp_top_fp64.sby — FP64, RISCV_MODE=1, BMC depth 32 (same 9 properties)
+#
+# Usage:
+#   make -f Makefile.formal          # full run (sv2v + both sby checks)
+#   make -f Makefile.formal fp32     # FP32 only
+#   make -f Makefile.formal fp64     # FP64 only
+#   make -f Makefile.formal fp_rtl.v # just regenerate converted RTL
+
+SRC     := ../../src
+SV2V    ?= sv2v
+SBY     ?= sby
+
+RTL_SV  := $(SRC)/fp_pkg.sv \
+            $(SRC)/fp_rnd.sv \
+            $(SRC)/fp_add.sv \
+            $(SRC)/fp_cmp.sv \
+            $(SRC)/fp_mul.sv \
+            $(SRC)/fp_classify.sv \
+            $(SRC)/fp_f2i.sv \
+            $(SRC)/fp_i2f.sv \
+            $(SRC)/fp_fma.sv \
+            $(SRC)/fp_div.sv \
+            $(SRC)/int_div.sv \
+            $(SRC)/int_sqrt.sv \
+            $(SRC)/fp_sqrt.sv \
+            $(SRC)/lzc.sv \
+            $(SRC)/fp_f2d.sv \
+            $(SRC)/fp_d2f.sv \
+            $(SRC)/fp_top.sv
+
+.PHONY: all fp32 fp64 clean
+
+all: fp_rtl.v fp32 fp64
+
+fp32: fp_rtl.v
+	$(SBY) -f fp_top.sby
+
+fp64: fp_rtl.v
+	$(SBY) -f fp_top_fp64.sby
+
+fp_rtl.v: $(RTL_SV)
+	$(SV2V) --incdir=$(SRC) $(RTL_SV) --write=$@
+
+clean:
+	rm -f fp_rtl.v
+	rm -rf fp_top/ fp_top_fp64/

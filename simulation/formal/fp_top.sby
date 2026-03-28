@@ -1,0 +1,35 @@
+# fp_top.sby — SymbiYosys configuration for PakFPU formal verification
+#
+# Prerequisites:
+#   1. sv2v (https://github.com/zachjs/sv2v) to pre-convert SV RTL to Verilog
+#   2. OSS CAD Suite (SymbiYosys + Bitwuzla)
+#
+# Run:
+#   cd simulation/formal
+#   make -f Makefile.formal         # generates fp_rtl.v then runs sby
+#   sby -f fp_top.sby               # BMC depth 32 (requires fp_rtl.v present)
+#
+# Targets:
+#   bmc   — Bounded Model Check to depth 32 (catches almost all flag/protocol bugs)
+#   prove — k-induction proof for invariant properties
+
+[options]
+mode bmc
+depth 32
+
+[engines]
+smtbmc bitwuzla
+
+[script]
+# fp_rtl.v   — sv2v-converted RTL (all SV package types inlined as plain Verilog).
+# fp_props.sv — Yosys-compatible property module (always@posedge + $past).
+# fp_formal_top.sv — wrapper that co-instantiates fp_top + fp_props.
+read_verilog -sv fp_rtl.v
+read_verilog -sv fp_props.sv
+read_verilog -sv fp_formal_top.sv
+prep -top fp_formal_top -nordff
+
+[files]
+fp_rtl.v
+fp_props.sv
+fp_formal_top.sv

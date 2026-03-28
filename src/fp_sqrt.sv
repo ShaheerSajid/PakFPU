@@ -1,6 +1,22 @@
-import fp_pkg::*;
+// fp_sqrt — IEEE 754 floating-point square root
+//
+// Algorithm: integer square root via int_sqrt (digit-recurrence, 1 bit/cycle)
+//   1. Pre-align significand: LZC shift (shamt_a) so MSB = 1.
+//      Odd/even exponent parity handled via shamt_val: if exp is odd (after
+//      subnormal adjustment) the input is shifted one extra position so the
+//      integer sqrt produces a result with the correct exponent parity.
+//   2. Integer sqrt: input = {a_mant, MANT+1+GUARD+1 zeros} shifted by shamt_val.
+//      Produces (MANT+GUARD+1)-bit root + remainder.
+//   3. Result exponent: (exp_adj >> 1) + (BIAS−1)/2 + exp_adj[0]
+//      where exp_adj = a.exp − shamt_a  (biased, subnormal-corrected).
+//   4. Sticky bit = (remainder ≠ 0).
+//
+// Latency: dynamic — int_sqrt runs WIDTH/2 iterations (restoring).
+//   FP32: ~29 cycles.  FP64: ~57 cycles.
+// Special cases: NaN, sqrt(−x)=Invalid (x>0), sqrt(±0)=±0, sqrt(+Inf)=+Inf.
 
 module fp_sqrt
+import fp_pkg::*;
 #(
     parameter fp_format_e FP_FORMAT = FP32
 )

@@ -10,8 +10,8 @@
 SIM   := simulation
 SYNTH := synth/quartus/de1soc
 
-.PHONY: sim sim-all sim-regress \
-        synth synth-map synth-fit synth-asm synth-sta synth-clean \
+.PHONY: sim sim-all sim-regress formal \
+        synth synth-map synth-fit synth-asm synth-sta synth-clean synth-archive \
         clean help
 
 # ----------------------------------------------------------------
@@ -29,6 +29,10 @@ sim-all:
 # Full regression (all ops, all rounding modes)
 sim-regress:
 	cd $(SIM) && ./regress.sh $(LEVEL)
+
+# Formal verification (SymbiYosys BMC — requires sv2v and sby)
+formal:
+	$(MAKE) -C $(SIM)/formal -f Makefile.formal
 
 # ----------------------------------------------------------------
 # Synthesis — Quartus / DE1-SoC
@@ -52,6 +56,9 @@ synth-sta:
 synth-clean:
 	$(MAKE) -C $(SYNTH) clean
 
+synth-archive:
+	$(MAKE) -C $(SYNTH) archive-reports $(MAKEOVERRIDES)
+
 # ----------------------------------------------------------------
 # Misc
 # ----------------------------------------------------------------
@@ -67,8 +74,15 @@ help:
 	@echo "  make sim-all        TEST=f32_sqrt                 (all 5 rounding modes)"
 	@echo "  make sim-regress    [LEVEL=1|2]                   (175-run full sweep)"
 	@echo ""
+	@echo "  ROUND_MODE: 0=RNE 1=RTZ 2=RDN 3=RUP 4=RMM"
+	@echo "  LEVEL:      1=standard  2=exhaustive"
+	@echo "  TRACE=1     enable waveform dump (*.vcd)"
+	@echo ""
 	@echo "  For all simulation options:"
 	@echo "  make -C simulation help"
+	@echo ""
+	@echo "Formal verification (requires sv2v + SymbiYosys/bitwuzla):"
+	@echo "  make formal         BMC depth 32, FP32 + FP64, RISC-V mode"
 	@echo ""
 	@echo "Synthesis (Quartus, DE1-SoC Cyclone V):"
 	@echo "  make synth          Full compile flow (map+fit+asm+sta)"
@@ -76,12 +90,10 @@ help:
 	@echo "  make synth-fit      Place and route only"
 	@echo "  make synth-sta      Timing analysis only"
 	@echo "  make synth-clean    Remove Quartus output files"
+	@echo "  make synth-archive  Copy key .rpt files to reports/ for git tracking"
 	@echo ""
 	@echo "  QUARTUS_SH=<path>  Override Quartus shell path (default: quartus_sh)"
-	@echo ""
 	@echo "  Results: synth/quartus/de1soc/output_files/"
-	@echo "    *.fit.rpt  — area (ALMs, FFs, DSPs)"
-	@echo "    *.sta.rpt  — timing (Fmax)"
 	@echo ""
 	@echo "General:"
 	@echo "  make clean          Clean all generated files"

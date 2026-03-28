@@ -1,9 +1,27 @@
-simulation/obj_dir
+# Verilator build output
+simulation/obj_dir/
+
+# Test vectors and log files
 simulation/testbench/*.txt
 simulation/*.txt
-synth/quartus/de1soc/db
-synth/quartus/de1soc/output_files
-synth/quartus/de1soc/incremental_db
+
+# Formal verification artifacts (sv2v output + SymbiYosys run directory)
+simulation/formal/fp_rtl.v
+simulation/formal/fp_top/
+
+# Reference model compiled artifacts
+simulation/ref_model/*.o
+simulation/ref_model/*.a
+simulation/ref_model/softfloat/build/**/*.o
+simulation/ref_model/softfloat/build/**/*.a
+
+# Waveform dumps
+*.vcd
+
+# Quartus synthesis outputs
+synth/quartus/de1soc/db/
+synth/quartus/de1soc/output_files/
+synth/quartus/de1soc/incremental_db/
 synth/quartus/de1soc/*.qdf
 synth/quartus/de1soc/*.txt
 synth/quartus/de1soc/*.qws
