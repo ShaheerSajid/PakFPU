@@ -54,59 +54,74 @@ begin
             result_o =  2**(INT_WIDTH) - 1;
             flags_o.NV = 1'b1;
         end
-        else if(a_info.is_zero)  
-        begin       
-            result_o =  0;   
-            flags_o.NV = 1'b0;
+        else if(a_info.is_inf & a_info.is_minus)
+        begin
+            result_o =  0;
+            flags_o.NV = 1'b1;
+        end
+        else if(a_info.is_zero)
+        begin
+            result_o =  0;
         end
         else
             if(a_info.is_minus)
                 case(rnd_i)
                     RDN:        begin
-                                    result_o = 2**(INT_WIDTH) - 1;
+                                    // Negative rounded toward -inf is always negative -> clamp to 0
+                                    result_o = 0;
                                     flags_o.NV = 1'b1;
                                 end
-                    RUP, RTZ:   begin   
-                                    result_o = (a_decoded.exp >= BIAS)? 2**(INT_WIDTH) - 1 : 0;
+                    RUP, RTZ:   begin
+                                    // Round toward zero/+inf: magnitude >= 1 overflows, else rounds to 0
+                                    result_o = 0;
                                     flags_o.NV = (a_decoded.exp >= BIAS);
+                                    flags_o.NX = ~flags_o.NV & (|rs);
                                 end
-                    RNE, RMM:   begin        
-                                    result_o = (a_decoded.exp >= BIAS | round_up)? 2**(INT_WIDTH) - 1 : 0;
-                                    flags_o.NV = (a_decoded.exp >= BIAS | round_up);
+                    RNE, RMM:   begin
+                                    // Round to nearest: if rounds up to -1 or more, overflow
+                                    result_o = 0;
+                                    flags_o.NV = (a_decoded.exp >= BIAS) | round_up;
+                                    flags_o.NX = ~flags_o.NV & (|rs);
                                 end
                     default:    begin
                                     result_o = 0;
-                                    flags_o.NV = 1'b0;
                                 end
                 endcase
             else
                 begin
                     result_o = ((a_decoded.exp >= BIAS && shamt >= INT_WIDTH) | round_int[INT_WIDTH])? 2**(INT_WIDTH) - 1 : round_int;
                     flags_o.NV = (a_decoded.exp >= BIAS && shamt >= INT_WIDTH) | round_int[INT_WIDTH];
+                    flags_o.NX = ~flags_o.NV & (|rs);
                 end
     end
     else
     begin
         if(a_info.is_nan || (a_info.is_inf & ~a_info.is_minus))
         begin
+            result_o =  2**(INT_WIDTH-1) - 1;
+            flags_o.NV = 1'b1;
+        end
+        else if(a_info.is_inf & a_info.is_minus)
+        begin
             result_o =  2**(INT_WIDTH-1);
             flags_o.NV = 1'b1;
         end
-        else if(a_info.is_zero)  
-        begin       
+        else if(a_info.is_zero)
+        begin
             result_o =  0;
-            flags_o.NV = 1'b0;
-        end 
+        end
         else
             if(a_info.is_minus)
             begin
                 result_o = (a_decoded.exp >= BIAS && shamt >= (INT_WIDTH-1))? 2**(INT_WIDTH-1) : -round_int;
-                flags_o.NV = a_decoded.exp >= BIAS && shamt > (INT_WIDTH-1) | (round_int > (2**(INT_WIDTH-1)));
+                flags_o.NV = (a_decoded.exp >= BIAS && shamt > (INT_WIDTH-1)) | (round_int > (2**(INT_WIDTH-1)));
+                flags_o.NX = ~flags_o.NV & (|rs);
             end
             else
             begin
-                result_o = (a_decoded.exp >= BIAS && shamt >= (INT_WIDTH-1))? 2**(INT_WIDTH-1) : round_int;
-                flags_o.NV = (a_decoded.exp >= BIAS && shamt > (INT_WIDTH-1))  | (round_int >= (2**(INT_WIDTH-1)));
+                result_o = (a_decoded.exp >= BIAS && shamt >= (INT_WIDTH-1))? 2**(INT_WIDTH-1) - 1 : round_int;
+                flags_o.NV = (a_decoded.exp >= BIAS && shamt > (INT_WIDTH-1)) | (round_int >= (2**(INT_WIDTH-1)));
+                flags_o.NX = ~flags_o.NV & (|rs);
             end
     end
 end
