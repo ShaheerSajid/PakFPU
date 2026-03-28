@@ -1,3 +1,32 @@
+// fp_fma — IEEE 754 fused multiply-add  (a × b + c)
+//
+// Algorithm: two-stage pipeline — multiply then add in a widened format.
+//
+//   Stage 1 (cycle 0 — multiply, registered at posedge):
+//     Computes a × b in the same style as fp_mul but retains the full
+//     (2*MANT+2)-bit product mantissa without rounding.  The result is
+//     stored in joined_mul_result_q (FP_WIDTH_ADDER bits wide).
+//
+//   Stage 2 (cycle 1 — add, combinational → output):
+//     fp_fma_add_unit adds joined_mul_result_q to c (zero-extended to the
+//     same wider format) and produces the unrounded FMA result.
+//
+// Why the widened intermediate format (MANT_WIDTH_ADDER = 2*MANT_WIDTH + 2)?
+//   IEEE 754-2008 §5.1 requires that a fused operation be computed as if to
+//   infinite precision before a single final rounding.  Rounding the multiply
+//   product before adding c (as a non-fused a×b+c would) can produce a
+//   doubly-rounded result that differs from the correctly-rounded FMA.
+//   Keeping the full 2*MANT+2 product bits into the adder avoids this.
+//
+//   For FP32: MANT_WIDTH_ADDER = 48, FP_WIDTH_ADDER = 57 (1+8+48)
+//   For FP64: MANT_WIDTH_ADDER = 106, FP_WIDTH_ADDER = 118 (1+11+106)
+//   The fp_pkg::fma_format() lookup returns FP48 / FP118 respectively,
+//   which fp_fma_add_unit uses to size its internal signals.
+//
+// Latency: 2 cycles (stage 1 register + regwall in fp_top + rounding = 3 total).
+// Special cases: handled per-stage; invalid combinations (Inf×0+c, etc.)
+//   detected in the pre-check blocks after each stage.
+
 module fp_fma
 import fp_pkg::*;
 #(

@@ -1,3 +1,38 @@
+// fp_top — PakFPU top-level dispatch and pipeline
+//
+// Architecture: unified regwall + rounding for all arithmetic operations.
+//
+//   Input stage (combinational):
+//     NaN-box check (RISCV_MODE) → operation decode → sub-unit strobes.
+//
+//   Compute stage (combinational or multi-cycle):
+//     fp_add / fp_mul / fp_fma / fp_div / fp_sqrt / fp_i2f / fp_f2i /
+//     fp_cmp / fp_classify / fp_f2d / fp_d2f — each runs independently.
+//     Long ops (div/sqrt) assert busy; FMA has a 1-cycle pipeline latency.
+//
+//   Regwall (1 cycle):
+//     All unit results are muxed and registered on done_sel. This single
+//     pipeline stage absorbs the combinational delay of the arithmetic units
+//     and ensures a stable input to fp_rnd.
+//
+//   Round stage (combinational):
+//     fp_rnd applies the selected IEEE 754 rounding mode to the unrounded
+//     result (sign, exponent, mantissa, R/S bits) and produces the final value.
+//
+//   Output mux:
+//     Selects rounded FP result or direct result (integer, compare bit,
+//     class mask). Canonical NaN enforcement for RISCV_MODE.
+//
+// Handshake:
+//   ready_o — deasserts when a long op (div/sqrt) or FMA is in flight.
+//   valid_o — single-cycle pulse when result is available (one cycle after done).
+//
+// Latencies (start_i to valid_o):
+//   add/mul/convert/cmp/sgnj/classify: 2 cycles
+//   FMA:   3 cycles
+//   div:  ~52 cycles (FP32), ~110 cycles (FP64)
+//   sqrt: ~29 cycles (FP32), ~57  cycles (FP64)
+
 module fp_top
 import fp_pkg::*;
 #(

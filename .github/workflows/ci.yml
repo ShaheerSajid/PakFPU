@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  simulate:
+    name: Regression (Verilator + Berkeley TestFloat)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Verilator
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y verilator python3
+
+      - name: Make TestFloat binaries executable
+        run: chmod +x simulation/testfloat/testfloat_gen
+
+      - name: Run full regression (LEVEL=1)
+        run: make sim-regress LEVEL=1
+
+      - name: Upload failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regress-failures
+          path: simulation/regress_failures.txt

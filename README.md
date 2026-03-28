@@ -94,13 +94,13 @@ Tested with Berkeley TestFloat (level 1, all 5 rounding modes: RNE RTZ RDN RUP R
 | mul | PASS | PASS | |
 | div | PASS | PASS | |
 | sqrt | PASS | PASS | |
-| mulAdd (FMA) | PASS | PASS | |
+| mulAdd (FMA) | PASS | PASS | f64_mulAdd fix in dev branch |
 | le / eq / lt | PASS | PASS | |
 | f2f conversion | PASS | PASS | f32↔f64 |
 | int→float (i2f) | PASS | PASS | signed/unsigned × 32/64-bit |
 | float→int (f2i) | PASS | PASS | signed/unsigned × 32/64-bit |
-| min / max | — | — | No testfloat_gen reference vectors |
-| classify | — | — | No testfloat_gen reference vectors |
+| min / max | PASS | PASS | Directed special-value tests (no testfloat_gen vectors) |
+| classify | PASS | PASS | Directed special-value tests (no testfloat_gen vectors) |
 | mulSub / negMulAdd / negMulSub | — | — | No testfloat_gen reference vectors |
 | rem | — | — | Not implemented |
 
@@ -122,14 +122,16 @@ make sim TEST=f32_div ROUND_MODE=0 LEVEL=1
 make sim-all TEST=f32_sqrt
 ```
 
-### Full regression (180 tests — all ops × all rounding modes)
+### Full regression
 
 ```bash
 make sim-regress          # level 1, ~2 min
 make sim-regress LEVEL=2  # level 2, more thorough
 ```
 
-Exit code is 0 on full pass, 1 on any failure. Failures are logged to `simulation/regress_failures.txt`.
+Runs 176 Berkeley TestFloat tests (all ops × 5 rounding modes) plus directed
+special-value tests for min/max/classify. Exit code is 0 on full pass, 1 on any
+failure. Failures are logged to `simulation/regress_failures.txt`.
 
 ### Variables
 
@@ -157,7 +159,7 @@ Properties are in `simulation/formal/fp_props.sv`. The flow uses `sv2v` to pre-p
 make formal   # requires sv2v and sby/bitwuzla
 ```
 
-Properties verified (FP32, RISC-V mode):
+Properties verified (FP32 + FP64, RISC-V mode):
 
 | ID | Property |
 |----|----------|
@@ -175,7 +177,7 @@ Properties verified (FP32, RISC-V mode):
 
 The file `simulation/src.args` lists all RTL source files compiled by both Verilator and QuestaSim. When adding a new module, append it there.
 
-Experimental / work-in-progress modules live in `src/wip/` and are not included in `src.args`.
+All modules in `src/` are included in `src.args` and are part of the verified design.
 
 ## Contribute
 

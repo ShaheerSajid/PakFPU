@@ -1,3 +1,19 @@
+// fp_div — IEEE 754 floating-point divider
+//
+// Algorithm: restoring integer long division via int_div
+//   1. Pre-normalize both significands (LZC shift so MSB = 1).
+//   2. Integer divide: numerator = {a_mant, MANT+1+GUARD zeros} shifted by shamt_a
+//                      denominator = {MANT+1+GUARD zeros, b_mant} shifted by shamt_b
+//      Produces a (MANT+2+GUARD)-bit quotient plus remainder.
+//   3. Exponent: a.exp − b.exp + BIAS − 1, adjusted for subnormal operands and
+//      the normalization shifts (shift_exp = urpr_exp − shamt_a + shamt_b).
+//   4. Sticky bit = (remainder ≠ 0); R/S extracted from quotient guard bits.
+//
+// Latency: dynamic — int_div runs WIDTH/1 = (2*MANT+2+GUARD) iterations.
+//   FP32: ~52 cycles.  FP64: ~110 cycles.
+// Special cases: NaN, Inf/Inf=Invalid, 0/0=Invalid, finite/0=±Inf+DZ flag,
+//   Inf/finite=±Inf, finite/Inf=±0, 0/finite=±0.
+
 module fp_div
 import fp_pkg::*;
 #(

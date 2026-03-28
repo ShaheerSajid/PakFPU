@@ -1,3 +1,15 @@
+// fp_mul — IEEE 754 floating-point multiplier
+//
+// Algorithm: schoolbook sign × sign, exponent add − BIAS, mantissa multiply
+//   1. Result sign  = a.sign XOR b.sign.
+//   2. Result exp   = a.exp + b.exp − BIAS (adjusted for subnormal inputs).
+//   3. Mantissa     = {is_normal, a.mant} × {is_normal, b.mant} → 2*MANT+2 bits.
+//   4. Normalize: if bit [2*MANT+1] set, exponent +1 (carry); else LZC left-shift.
+//   5. Extract R/S bits from the low-order product bits for rounding.
+//
+// Latency: combinational (done_o = start_i).
+// Special cases: NaN propagation, Inf×0 = Invalid, Inf×finite = ±Inf, 0×finite = ±0.
+
 module fp_mul
 import fp_pkg::*;
 #(

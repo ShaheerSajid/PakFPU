@@ -1,0 +1,33 @@
+# fp_top_fp64.sby — SymbiYosys BMC for PakFPU FP64 instance
+#
+# Verifies the same 9 properties as fp_top.sby but with FP_FORMAT=2 (FP64).
+#
+# Run:
+#   cd simulation/formal
+#   make -f Makefile.formal           # runs both FP32 and FP64 checks
+#   sby -f fp_top_fp64.sby            # FP64 only (requires fp_rtl.v present)
+#
+# Depth note: FDIV takes ~110 cycles and FSQRT ~57 cycles for FP64.
+# Depth 32 verifies protocol/exception properties but does not reach long-op
+# completion. Set depth >= 112 to cover FDIV end-to-end.
+
+[options]
+mode bmc
+depth 32
+
+[engines]
+smtbmc bitwuzla
+
+[script]
+# fp_rtl.v — sv2v-converted RTL (shared with FP32 run).
+# fp_props.sv — parameterised checker (FP_FORMAT=2 via fp_formal_top_fp64).
+# fp_formal_top_fp64.sv — FP64 wrapper.
+read_verilog -sv fp_rtl.v
+read_verilog -sv fp_props.sv
+read_verilog -sv fp_formal_top_fp64.sv
+prep -top fp_formal_top_fp64 -nordff
+
+[files]
+fp_rtl.v
+fp_props.sv
+fp_formal_top_fp64.sv

@@ -11,7 +11,7 @@ SIM   := simulation
 SYNTH := synth/quartus/de1soc
 
 .PHONY: sim sim-all sim-regress formal \
-        synth synth-map synth-fit synth-asm synth-sta synth-clean \
+        synth synth-map synth-fit synth-asm synth-sta synth-clean synth-archive \
         clean help
 
 # ----------------------------------------------------------------
@@ -56,6 +56,9 @@ synth-sta:
 synth-clean:
 	$(MAKE) -C $(SYNTH) clean
 
+synth-archive:
+	$(MAKE) -C $(SYNTH) archive-reports $(MAKEOVERRIDES)
+
 # ----------------------------------------------------------------
 # Misc
 # ----------------------------------------------------------------
@@ -79,7 +82,7 @@ help:
 	@echo "  make -C simulation help"
 	@echo ""
 	@echo "Formal verification (requires sv2v + SymbiYosys/bitwuzla):"
-	@echo "  make formal         BMC depth 32, FP32 RISC-V mode"
+	@echo "  make formal         BMC depth 32, FP32 + FP64, RISC-V mode"
 	@echo ""
 	@echo "Synthesis (Quartus, DE1-SoC Cyclone V):"
 	@echo "  make synth          Full compile flow (map+fit+asm+sta)"
@@ -87,6 +90,7 @@ help:
 	@echo "  make synth-fit      Place and route only"
 	@echo "  make synth-sta      Timing analysis only"
 	@echo "  make synth-clean    Remove Quartus output files"
+	@echo "  make synth-archive  Copy key .rpt files to reports/ for git tracking"
 	@echo ""
 	@echo "  QUARTUS_SH=<path>  Override Quartus shell path (default: quartus_sh)"
 	@echo "  Results: synth/quartus/de1soc/output_files/"

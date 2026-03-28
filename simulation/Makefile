@@ -393,6 +393,13 @@ verilator_sim:
 	@echo "Input: TEST_FILE=$(TEST_FILE) ROUND_MODE=$(ROUND_MODE) NUM_INPUTS=$(NUM_INPUTS) RESULT_BITS=$(RESULT_BITS) CHECK_FLAGS=$(CHECK_FLAGS)"
 	obj_dir/Vtb $(TEST_FILE) $(ROUND_MODE) $(NUM_INPUTS) $(RESULT_BITS) $(CHECK_FLAGS)
 
+# Compile Verilator binary only (no run). Used by directed tests in regress.sh.
+.PHONY: verilator_compile
+verilator_compile:
+	@echo "Compiling Testbench (no run)"
+	verilator $(VERILATOR_COMMON_FLAGS) --exe testbench/main.cpp
+	$(MAKE) -s -j -C obj_dir/ -f Vtb.mk Vtb OBJCACHE=
+
 # Ref-model testbench: uses inline SoftFloat instead of pre-generated vectors.
 # Supports --riscv flag for RISC-V mode verification.
 verilator_refmodel_sim: ref_model

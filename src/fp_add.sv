@@ -1,3 +1,17 @@
+// fp_add — IEEE 754 floating-point adder / subtractor
+//
+// Algorithm: align-shift → add/subtract → normalize → round-bits
+//   1. Compare exponents; shift the smaller significand right by exp_diff.
+//      A sticky-bit accumulator (compressed_mant) preserves lost precision.
+//   2. Perform 2's-complement add or subtract in a wider accumulator
+//      (MANT_WIDTH + GUARD_BITS + 3 bits) to hold carry-out and borrow.
+//   3. Normalize via LZC left-shift; carry-out → right-shift by 1.
+//   4. Output unrounded result (uround_res_t) + R/S bits to caller (fp_top → fp_rnd).
+//
+// Latency: combinational (done_o = start_i).
+// Special cases handled combinationally: NaN, ±Inf, ±0, exact cancellation,
+// both-subnormal (result stays subnormal without rounding enable).
+
 module fp_add
 import fp_pkg::*;
 #(
